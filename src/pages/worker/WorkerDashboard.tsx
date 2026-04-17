@@ -1,225 +1,135 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@convex/_generated/api";
-import {
-  Clock,
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  CheckCircle, 
+  Star, 
+  TrendingUp, 
+  MapPin, 
+  Clock, 
   Power,
   ShieldCheck,
-  ChevronLeft,
-  Wallet,
-  TrendingUp,
-  Star,
-  MapPin,
-  ArrowUpRight,
-  ShieldAlert,
-  Award
+  CreditCard
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
 export function WorkerDashboard() {
-  const navigate = useNavigate();
-  const user = useQuery(api.auth.loggedInUser);
-  const activeJobs = useQuery(api.requests.listActiveRequests) ?? [];
-  const earnings = useQuery(api.requests.getWorkerEarnings) ?? { total: 0, weekly: 0, chartData: [] };
-  const acceptContract = useMutation(api.requests.acceptContract);
-  const toggleOnline = useMutation(api.users.toggleOnlineStatus);
-  const updateLocation = useMutation(api.users.updateLocation);
-  const [isOnline, setIsOnline] = useState(user?.isOnline ?? false);
-  useEffect(() => {
-    if (user?.isOnline !== undefined) setIsOnline(user.isOnline);
-  }, [user?.isOnline]);
-  useEffect(() => {
-    if (!isOnline || user?.kycStatus !== "verified") return;
-    const reportLocation = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateLocation({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
-        },
-        (err) => console.warn("Location update failed", err),
-        { enableHighAccuracy: true }
-      );
-    };
-    reportLocation();
-    const interval = setInterval(reportLocation, 45000);
-    return () => clearInterval(interval);
-  }, [isOnline, user?.kycStatus, updateLocation]);
-  const handleToggleOnline = async (val: boolean) => {
-    if (user?.kycStatus !== 'verified') {
-      toast.error("يرجى إكمال التوثيق أولاً");
-      return;
-    }
-    try {
-      await toggleOnline({ isOnline: val });
-      setIsOnline(val);
-      toast.success(val ? "أنت متصل الآن" : "أنت غير متصل");
-    } catch (err) {
-      toast.error("فشل تغيير الحالة");
-    }
-  };
-  const getTrustLabel = (score: number) => {
-    if (score >= 4.8) return { label: "ممتاز", color: "text-emerald-600 bg-emerald-50" };
-    if (score >= 4.0) return { label: "جيد جداً", color: "text-blue-600 bg-blue-50" };
-    return { label: "موثق", color: "text-amber-600 bg-amber-50" };
-  };
-  const currentJob = activeJobs.find(j => j.status !== 'completed' && j.status !== 'cancelled');
-  const trustInfo = getTrustLabel(user?.trustScore || 5.0);
+  const [isOnline, setIsOnline] = useState(false);
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" dir="rtl">
-      <div className="py-8 md:py-12 space-y-10">
-        {currentJob && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="rounded-[2.5rem] border-primary/50 bg-primary/5 shadow-2xl overflow-hidden border-2">
-              <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-8 text-right">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
-                    <Clock className="w-8 h-8 animate-pulse" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-2xl text-primary">لديك مهمة جارية!</h4>
-                    <p className="text-lg text-muted-foreground font-medium">{currentJob.serviceType} • {currentJob.address}</p>
-                  </div>
-                </div>
-                <Button onClick={() => navigate(`/worker/job/${currentJob._id}`)} className="rounded-2xl px-12 h-14 text-xl font-bold gap-3 shadow-xl">المتابعة للعمل <ChevronLeft className="w-6 h-6" /></Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-        <div className="grid md:grid-cols-3 gap-8">
-          <Card className="md:col-span-2 rounded-[3rem] border-none shadow-soft bg-gradient-to-br from-card via-card to-emerald-50/30 overflow-hidden">
-            <CardContent className="p-10 flex flex-col sm:flex-row items-center gap-10 text-right">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-8 md:py-10 space-y-8">
+        {/* Status & Trust Profile */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card className="md:col-span-2 rounded-3xl border-none shadow-soft bg-gradient-to-bl from-card to-accent/20">
+            <CardContent className="p-8 flex items-center gap-6">
               <div className="relative">
-                <div className="w-32 h-32 rounded-[2.5rem] bg-primary/10 border-8 border-white flex items-center justify-center text-5xl font-black text-primary shadow-xl">
-                  {user?.name?.[0] || 'ف'}
+                <div className="w-20 h-20 rounded-full bg-primary/10 border-4 border-white flex items-center justify-center text-3xl font-bold text-primary">ع</div>
+                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
+                  <ShieldCheck className="w-4 h-4 text-white" />
                 </div>
-                {user?.kycStatus === 'verified' && (
-                  <div className="absolute -bottom-2 -right-2 bg-emerald-500 rounded-2xl p-2 border-4 border-white shadow-lg">
-                    <ShieldCheck className="w-6 h-6 text-white" />
-                  </div>
-                )}
               </div>
-              <div className="flex-1 space-y-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-4xl font-black tracking-tight">{user?.name || "فني صنعة"}</h2>
-                  <Badge className={cn("rounded-full px-6 py-1.5 text-sm font-bold border-none", trustInfo.color)}>
-                    <Award className="w-4 h-4 mr-2" /> مستوى {trustInfo.label}
-                  </Badge>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold">علي المحسن</h2>
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100">موثق</Badge>
                 </div>
-                <p className="text-xl text-muted-foreground font-medium">الهاتف: {user?.phone || "غير مسجل"}</p>
-                <div className="flex items-center gap-2 text-amber-500 font-black text-2xl">
-                  <Star className="w-8 h-8 fill-current drop-shadow-sm" />
-                  <span>{user?.trustScore?.toFixed(1) || "5.0"}</span>
+                <p className="text-muted-foreground">فني سباكة متخصص • الرياض</p>
+                <div className="flex items-center gap-1 text-amber-500">
+                  <Star className="w-4 h-4 fill-current" />
+                  <span className="font-bold">4.9</span>
+                  <span className="text-muted-foreground text-sm">(124 تقييم)</span>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-[3rem] border-none shadow-soft overflow-hidden group">
-            <CardContent className={cn(
-              "p-10 h-full flex flex-col items-center justify-center gap-6 transition-all duration-500",
-              isOnline ? "bg-emerald-50" : "bg-slate-50"
-            )}>
-              <div className={cn(
-                "w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110",
-                isOnline ? "bg-emerald-500 text-white" : "bg-slate-400 text-white"
-              )}>
-                <Power className="w-12 h-12" />
+          <Card className="rounded-3xl border-none shadow-soft overflow-hidden">
+            <CardContent className={cn("p-8 h-full flex flex-col items-center justify-center gap-4 transition-colors", isOnline ? "bg-green-50" : "bg-slate-50")}>
+              <div className={cn("p-4 rounded-full", isOnline ? "bg-green-500 text-white" : "bg-slate-400 text-white")}>
+                <Power className="w-8 h-8" />
               </div>
-              <div className="text-center space-y-2">
-                <p className="font-black text-2xl tracking-tight">{isOnline ? "متصل الآن" : "غير متصل"}</p>
-                <p className="text-muted-foreground font-medium">فعل وضع الاتصال لاستقبال الطلبات</p>
+              <div className="text-center">
+                <p className="font-bold text-lg">{isOnline ? "أنت متصل الآن" : "أنت غير متصل"}</p>
+                <p className="text-sm text-muted-foreground">قم بالتفعيل لاستقبال الطلبات</p>
               </div>
-              <Switch checked={isOnline} onCheckedChange={handleToggleOnline} className="scale-150 data-[state=checked]:bg-emerald-600" />
+              <Switch checked={isOnline} onCheckedChange={setIsOnline} className="data-[state=checked]:bg-green-500" />
             </CardContent>
           </Card>
         </div>
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div className="grid grid-cols-2 gap-6">
-              <StatCard title="إجمالي الأرباح" value={`${earnings.total} MRU`} icon={Wallet} color="text-emerald-500" />
-              <StatCard title="أرباح الأسبوع" value={`${earnings.weekly} MRU`} icon={TrendingUp} color="text-blue-500" />
-            </div>
-            <Card className="rounded-[3rem] border-none shadow-soft p-10">
-              <div className="flex items-center justify-between mb-8 text-right">
-                <h4 className="font-black text-2xl">تحليل الأداء الأسبوعي</h4>
-                <Button variant="outline" className="rounded-xl font-bold border-primary/20 text-primary">المحفظة الكاملة</Button>
-              </div>
-              <div className="h-64 w-full">
-                {earnings.chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={earnings.chartData}>
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 14, fontWeight: 700 }} />
-                      <Tooltip 
-                        cursor={{ fill: 'rgba(0,0,0,0.02)' }} 
-                        contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '15px' }} 
-                        formatter={(v: any) => [`${v} MRU`, "الأرباح"]}
-                      />
-                      <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground font-bold">لا توجد بيانات متاحة لهذا الأسبوع</div>
-                )}
-              </div>
-            </Card>
-          </div>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black">طلبات قريبة منك</h3>
-              <Badge variant="outline" className="rounded-full">نواكشوط</Badge>
-            </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="أرباح اليوم" value="450 ر.س" icon={CreditCard} color="text-emerald-500" />
+          <StatCard title="طلبات مكتملة" value="12" icon={CheckCircle} color="text-blue-500" />
+          <StatCard title="ساعات العمل" value="6.5" icon={Clock} color="text-purple-500" />
+          <StatCard title="معدل القبول" value="98%" icon={TrendingUp} color="text-amber-500" />
+        </div>
+        {/* Job Requests */}
+        <section className="space-y-4">
+          <h3 className="text-xl font-bold">طلبات متاحة قريبة</h3>
+          <AnimatePresence>
             {isOnline ? (
-              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
-                <JobCard onAccept={() => toast.info("سيتم تحويلك للطلب فوراً")} />
-              </motion.div>
-            ) : (
-              <div className="bg-muted/30 rounded-[3rem] p-12 text-center space-y-6 border-4 border-dashed border-muted flex flex-col items-center">
-                <ShieldAlert className="w-16 h-16 text-muted-foreground opacity-30" />
-                <p className="text-xl font-bold text-muted-foreground leading-relaxed">فعل وضع الاتصال لتبدأ في جني الأرباح من منزلك.</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <JobCard />
+                <JobCard />
               </div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-accent/30 rounded-3xl p-12 text-center space-y-2 border-2 border-dashed"
+              >
+                <Power className="w-12 h-12 text-muted-foreground mx-auto opacity-50" />
+                <h4 className="text-lg font-bold">ابدأ العمل لتلقي الطلبات</h4>
+                <p className="text-muted-foreground">بمجرد تفعيل وضع الاتصال، ستظهر الطلبات القريبة منك هنا.</p>
+              </motion.div>
             )}
-          </div>
-        </div>
+          </AnimatePresence>
+        </section>
       </div>
     </div>
   );
 }
 function StatCard({ title, value, icon: Icon, color }: any) {
   return (
-    <Card className="rounded-[2rem] border-none shadow-soft group hover:shadow-xl transition-all">
-      <CardContent className="p-8 flex items-center gap-6 text-right">
-        <div className={cn("w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center transition-transform group-hover:rotate-6 shadow-inner", color)}>
-          <Icon className="w-7 h-7" />
+    <Card className="rounded-2xl border-none shadow-soft">
+      <CardContent className="p-6 flex items-center gap-4">
+        <div className={cn("p-3 rounded-xl bg-muted/50", color)}>
+          <Icon className="w-5 h-5" />
         </div>
         <div>
-          <p className="text-sm text-muted-foreground font-black mb-1">{title}</p>
-          <p className="text-2xl font-black tracking-tight">{value}</p>
+          <p className="text-xs text-muted-foreground">{title}</p>
+          <p className="text-lg font-bold">{value}</p>
         </div>
       </CardContent>
     </Card>
   );
 }
-function JobCard({ onAccept }: any) {
+function JobCard() {
   return (
-    <Card className="rounded-[2.5rem] shadow-soft border-2 border-primary/5 hover:border-primary/20 transition-all text-right overflow-hidden">
-      <CardContent className="p-8 space-y-6">
-        <div className="flex justify-between items-start">
-          <div className="space-y-2">
-            <Badge className="bg-primary/10 text-primary border-none rounded-lg px-4 font-bold">سباكة</Badge>
-            <h4 className="text-2xl font-black">إصلاح تسريب مياه</h4>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <Card className="rounded-2xl shadow-soft border-primary/10 hover:border-primary transition-all">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <Badge variant="outline" className="mb-2">سباكة طارئة</Badge>
+              <h4 className="text-lg font-bold">إصلاح تسريب مياه في المطبخ</h4>
+            </div>
+            <div className="text-right">
+              <span className="text-xl font-black text-primary">150 ر.س</span>
+              <p className="text-xs text-muted-foreground">تقديري</p>
+            </div>
           </div>
-          <div className="text-left"><span className="text-3xl font-black text-primary">250 MRU</span></div>
-        </div>
-        <div className="flex items-center gap-4 text-muted-foreground font-medium">
-          <span className="flex items-center gap-1"><MapPin className="w-5 h-5 text-primary" /> تفرغ زينة (1.2 كم)</span>
-        </div>
-        <Button onClick={onAccept} className="w-full bg-primary text-white rounded-2xl h-14 text-xl font-black shadow-lg hover:bg-primary/90">قبول الطلب الآن</Button>
-      </CardContent>
-    </Card>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> حي النرجس (2.4 كم)</span>
+            <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> الآن</span>
+          </div>
+          <div className="flex gap-2">
+            <Button className="flex-1 bg-primary rounded-xl">قبول الطلب</Button>
+            <Button variant="ghost" className="flex-1 rounded-xl">تجاهل</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
+import { cn } from "@/lib/utils";

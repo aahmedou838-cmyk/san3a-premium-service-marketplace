@@ -1,149 +1,110 @@
-// Home page of the app, Currently a demo page for demonstration.
-// Please rewrite this file to implement your own logic. Do not replace or delete it, simply rewrite this HomePage.tsx file.
-import { useEffect, useState, useMemo } from 'react'
-import { Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Toaster, toast } from '@/components/ui/sonner'
-
-// Convex Auth block
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { SignInForm } from "../components/SignInForm";
-import { SignOutButton } from "../components/SignOutButton";
-import { TemplateDemo, HAS_TEMPLATE_DEMO } from '@/components/TemplateDemo';
-
-//import { useQuery, useMutation } from 'convex/react';
-//import { api } from '@convex/_generated/api';
-
-// Timer store: independent slice with a clear, minimal API, for demonstration
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import React from "react";
+import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { SignInForm } from "@/components/SignInForm";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { motion } from "framer-motion";
+import { User, Briefcase, Sparkles, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 export function HomePage() {
-  // Select only what is needed to avoid unnecessary re-renders
-  const [coins, setCoins] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [elapsedMs, setElapsedMs] = useState(0)
-
-  useEffect(() => {
-    if (!isRunning || startedAt === null) return
-
-    const t = setInterval(() => {
-      setElapsedMs(Date.now() - startedAt)
-    }, 250)
-
-    return () => clearInterval(t)
-  }, [isRunning, startedAt])
-
-  const formatted = useMemo(() => formatDuration(elapsedMs), [elapsedMs])
-
-  const onPleaseWait = () => {
-    setCoins((c) => c + 1)
-
-    if (!isRunning) {
-      // Resume from the current elapsed time
-      setStartedAt(Date.now() - elapsedMs)
-      setIsRunning(true)
-      toast.success('Building your app…', {
-        description: "Hang tight, we're setting everything up.",
-      })
-      return
-    } 
-
-      setIsRunning(false)
-      toast.info('Taking a short pause', {
-        description: 'We\'ll continue shortly.',
-      })
-  }
-
-  const onReset = () => {
-    setCoins(0)
-    setIsRunning(false)
-    setStartedAt(null)
-    setElapsedMs(0)
-    toast('Reset complete')
-  }
-
-  const onAddCoin = () => {
-    setCoins((c) => c + 1)
-    toast('Coin added')
-  }
-
-  const loggedInUser = useQuery(api.auth.loggedInUser)
-
+  const user = useQuery(api.auth.loggedInUser);
+  const setRoleMutation = useMutation(api.users.setUserRole);
+  const navigate = useNavigate();
+  const handleRoleSelection = async (role: "client" | "worker") => {
+    await setRoleMutation({ role });
+    navigate(role === "client" ? "/client" : "/worker");
+  };
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-        <ThemeToggle />
-        <SignOutButton />
-        <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-        <div className="text-center space-y-8 relative z-10 animate-fade-in w-full">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-              <Sparkles className="w-8 h-8 text-white rotating" />
-            </div>
-          </div>
-          <Authenticated>
-            <p className="text-xl text-secondary">
-              Welcome back, {loggedInUser?.email ?? "friend"}!
-            </p>
-          </Authenticated>
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      <ThemeToggle />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-8 md:py-16 lg:py-24 text-center">
           <Unauthenticated>
-            <p className="text-xl text-secondary">Sign in to get started</p>
-          </Unauthenticated>
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-          {HAS_TEMPLATE_DEMO ? (
-            <div className="max-w-5xl mx-auto text-left">
-              <TemplateDemo />
+            <div className="max-w-md mx-auto space-y-8">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center shadow-xl">
+                  <Sparkles className="w-10 h-10 text-white animate-pulse" />
+                </div>
+                <h1 className="text-4xl font-bold tracking-tight text-gradient-primary">صنعة (San3a)</h1>
+                <p className="text-muted-foreground">منصتك الموثوقة لخدمات المنازل المتميزة</p>
+              </div>
+              <div className="bg-card p-8 rounded-3xl shadow-soft border">
+                <SignInForm />
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="flex justify-center gap-4">
-                <Button 
-                  size="lg"
-                  onClick={onPleaseWait}
-                  className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-                  aria-live="polite"
-                >
-                  Please Wait
-                </Button>
-              </div>
-              <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-                <div>
-                  Time elapsed: <span className="font-medium tabular-nums text-foreground">{formatted}</span>
+          </Unauthenticated>
+          <Authenticated>
+            <div className="space-y-12">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <h1 className="text-4xl md:text-6xl font-black">مرحباً بك في <span className="text-primary">صنعة</span></h1>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                  {user?.role 
+                    ? `أهلاً بك مرة أخرى، ${user?.email}` 
+                    : "كيف يمكننا مساعدتك اليوم؟ يرجى اختيار نوع حسابك للمتابعة."}
+                </p>
+              </motion.div>
+              {!user?.role ? (
+                <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                  <RoleCard 
+                    title="أبحث عن فني"
+                    description="سباكة، كهرباء، نجارة.. ابحث عن أفضل المحترفين في منطقتك بضغطة زر."
+                    icon={User}
+                    color="bg-primary"
+                    onClick={() => handleRoleSelection("client")}
+                  />
+                  <RoleCard 
+                    title="أنا مقدم خدمة"
+                    description="انضم إلى شبكة المحترفين لدينا، ابدأ في استقبال الطلبات وزيادة دخلك اليوم."
+                    icon={Briefcase}
+                    color="bg-secondary"
+                    onClick={() => handleRoleSelection("worker")}
+                  />
                 </div>
-                <div>
-                  Coins: <span className="font-medium tabular-nums text-foreground">{coins}</span>
+              ) : (
+                <div className="flex flex-col items-center gap-6">
+                  <div className="flex items-center gap-2 text-green-500 font-bold text-xl">
+                    <CheckCircle className="w-6 h-6" />
+                    تم تحديد دورك كـ {user.role === 'client' ? 'عميل' : 'مقدم خدمة'}
+                  </div>
+                  <Button 
+                    size="lg" 
+                    className="rounded-full px-12"
+                    onClick={() => navigate(user.role === "client" ? "/client" : "/worker")}
+                  >
+                    الانتقال للوحة التحكم
+                  </Button>
                 </div>
-              </div>
-              <div className="flex justify-center gap-2">
-                <Button variant="outline" size="sm" onClick={onReset}>
-                  Reset
-                </Button>
-                <Button variant="outline" size="sm" onClick={onAddCoin}>
-                  Add Coin
-                </Button>
-              </div>
-            </>
-          )}
+              )}
+            </div>
+          </Authenticated>
         </div>
-        <Unauthenticated>
-          <SignInForm />
-        </Unauthenticated>
-        <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-          <p>Built with love at Andromo</p>
-        </footer>
-        <Toaster richColors closeButton />
       </div>
-  )
+    </div>
+  );
+}
+function RoleCard({ title, description, icon: Icon, color, onClick }: any) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02, y: -5 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="bg-card p-8 rounded-[2.5rem] shadow-soft border text-right flex flex-col gap-6 transition-shadow hover:shadow-xl"
+    >
+      <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", color)}>
+        <Icon className="w-8 h-8 text-white" />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-2xl font-bold">{title}</h3>
+        <p className="text-muted-foreground leading-relaxed">{description}</p>
+      </div>
+      <div className="mt-auto pt-4 flex items-center gap-2 text-primary font-bold">
+        اختر هذا الدور ←
+      </div>
+    </motion.button>
+  );
 }

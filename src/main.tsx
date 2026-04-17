@@ -13,23 +13,28 @@ import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { convex } from '@/lib/convex';
 import '@/index.css'
-import { AppLayout } from '@/components/layout/AppLayout'
 import { HomePage } from '@/pages/HomePage'
-import { AboutPage } from '@/pages/AboutPage'
-
+import { ClientDashboard } from '@/pages/client/ClientDashboard'
+import { WorkerDashboard } from '@/pages/worker/WorkerDashboard'
+import { AdminDashboard } from '@/pages/admin/AdminDashboard'
+import { RtlLayout } from '@/components/layout/RtlLayout'
 const queryClient = new QueryClient();
-
 const router = createBrowserRouter([
   {
-    element: <AppLayout />,
+    path: "/",
+    element: <HomePage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    element: <RtlLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
-      { path: "/", element: <HomePage /> },
-      { path: "/about", element: <AboutPage /> },
+      { path: "/client", element: <ClientDashboard /> },
+      { path: "/worker", element: <WorkerDashboard /> },
+      { path: "/admin", element: <AdminDashboard /> },
     ],
   },
 ]);
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
