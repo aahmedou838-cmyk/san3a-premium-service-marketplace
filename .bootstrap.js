@@ -77,7 +77,10 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = [];
+    const commands = [
+    "bun add @fontsource/cairo@^5.0.22",
+    "bun add react-webcam@^7.1.5"
+];
     
     if (commands.length === 0) {
         console.log('⊘ No setup commands to run');
