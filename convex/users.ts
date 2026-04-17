@@ -12,7 +12,7 @@ export const setUserRole = mutation({
     await ctx.db.patch(userId, {
       role: args.role,
       kycStatus: "none",
-      trustScore: 0,
+      trustScore: 5.0, // Start with a default baseline
       isOnline: false,
     });
     await ctx.db.insert("audit_logs", {
@@ -130,9 +130,15 @@ export const verifyWorker = mutation({
     await ctx.db.insert("notifications", {
       userId: args.userId,
       title: "تم توثيق حسابك",
-      message: "تهانينا! تم التحقق من هويتك ويمكنك الآن استقبال طلبات العمل.",
+      message: "تهانينا! تم التحقق من هويتك بنجاح.",
       type: "success",
       isRead: false,
+      timestamp: Date.now(),
+    });
+    await ctx.db.insert("audit_logs", {
+      action: "WORKER_VERIFIED",
+      userId: adminId,
+      metadata: { targetUserId: args.userId },
       timestamp: Date.now(),
     });
   },
@@ -147,41 +153,10 @@ export const rejectWorker = mutation({
     await ctx.db.insert("notifications", {
       userId: args.userId,
       title: "تم رفض التوثيق",
-      message: `للأسف تم رفض طلب التوثيق. السبب: ${args.reason}`,
+      message: `السبب: ${args.reason}`,
       type: "warning",
       isRead: false,
       timestamp: Date.now(),
-    });
-  },
-});
-export const requestPayout = mutation({
-  args: {
-    amount: v.number(),
-    method: v.union(v.literal("Bankily"), v.literal("Masrivi"), v.literal("Bank")),
-  },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Unauthorized");
-    const user = await ctx.db.get(userId);
-    if (user?.role !== "worker") throw new Error("Only workers can request payouts");
-    await ctx.db.insert("payouts", {
-      workerId: userId,
-      amount: args.amount,
-      method: args.method,
-      status: "pending",
-      timestamp: Date.now(),
-    });
-    await ctx.db.insert("audit_logs", {
-      action: "PAYOUT_REQUESTED",
-      userId,
-      metadata: args,
-      timestamp: Date.now(),
-    });
-    await ctx.runMutation(internal.notifications.createNotification, {
-      userId,
-      title: "تم استلام طلب السحب",
-      message: `طلب سحب ${args.amount} MRU عبر ${args.method} قيد المراجعة.`,
-      type: "info",
     });
   },
 });
@@ -201,14 +176,14 @@ export const toggleUserFreeze = mutation({
     const adminId = await getAuthUserId(ctx);
     if (!adminId) throw new Error("Unauthorized");
     const adminUser = await ctx.db.get(adminId);
-    if (adminUser?.role !== "admin") throw new Error("Forbidden: Admin only");
+    if (adminUser?.role !== "admin") throw new Error("Forbidden");
     const user = await ctx.db.get(args.userId);
     const newStatus = !user?.isFrozen;
     await ctx.db.patch(args.userId, { isFrozen: newStatus });
     await ctx.db.insert("audit_logs", {
       action: newStatus ? "USER_FROZEN" : "USER_UNFROZEN",
       userId: adminId,
-      metadata: { targetUserId: args.userId, performedBy: adminId },
+      metadata: { targetUserId: args.userId },
       timestamp: Date.now(),
     });
   },
@@ -218,10 +193,14 @@ export const updateTrustScore = internalMutation({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) return;
-    const currentScore = user.trustScore ?? 0;
-    // Basic moving average simulation or cumulative
-    const newScore = currentScore === 0 ? args.increment : (currentScore + args.increment) / 2;
-    await ctx.db.patch(args.userId, { trustScore: newScore });
+    const reviews = await ctx.db
+      .query("reviews")
+      .withIndex("by_workerId", (q) => q.eq("workerId", args.userId))
+      .collect();
+    const avg = reviews.length > 0 
+      ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length 
+      : args.increment;
+    await ctx.db.patch(args.userId, { trustScore: avg });
   },
 });
 export const loggedInUser = query({

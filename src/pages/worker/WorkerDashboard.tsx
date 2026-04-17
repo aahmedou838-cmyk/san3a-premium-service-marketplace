@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -12,7 +12,9 @@ import {
   TrendingUp,
   Star,
   MapPin,
-  ArrowUpRight
+  ArrowUpRight,
+  ShieldAlert,
+  Award
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -20,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
 export function WorkerDashboard() {
   const navigate = useNavigate();
   const user = useQuery(api.auth.loggedInUser);
@@ -30,11 +32,9 @@ export function WorkerDashboard() {
   const toggleOnline = useMutation(api.users.toggleOnlineStatus);
   const updateLocation = useMutation(api.users.updateLocation);
   const [isOnline, setIsOnline] = useState(user?.isOnline ?? false);
-  // Sync internal state with user data
   useEffect(() => {
     if (user?.isOnline !== undefined) setIsOnline(user.isOnline);
   }, [user?.isOnline]);
-  // Real-time location tracking for online workers
   useEffect(() => {
     if (!isOnline || user?.kycStatus !== "verified") return;
     const reportLocation = () => {
@@ -42,108 +42,145 @@ export function WorkerDashboard() {
         (pos) => {
           updateLocation({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
         },
-        (err) => console.warn("Location error", err),
+        (err) => console.warn("Location update failed", err),
         { enableHighAccuracy: true }
       );
     };
     reportLocation();
-    const interval = setInterval(reportLocation, 30000); // 30s updates
+    const interval = setInterval(reportLocation, 45000);
     return () => clearInterval(interval);
   }, [isOnline, user?.kycStatus, updateLocation]);
   const handleToggleOnline = async (val: boolean) => {
+    if (user?.kycStatus !== 'verified') {
+      toast.error("يرجى إكمال التوثيق أولاً");
+      return;
+    }
     try {
       await toggleOnline({ isOnline: val });
       setIsOnline(val);
-      toast.success(val ? "أنت متصل الآن في نواكشوط" : "أنت غير متصل");
+      toast.success(val ? "أنت متصل الآن" : "أنت غير متصل");
     } catch (err) {
-      toast.error("فشل في تغيير الحالة");
+      toast.error("فشل تغيير الحالة");
     }
   };
-  const handleAcceptJob = async (requestId: any) => {
-    try {
-      await acceptContract({ requestId });
-      toast.success("تم قبول المهمة!");
-      navigate(`/worker/job/${requestId}`);
-    } catch (err) {
-      toast.error("فشل في قبول المهمة");
-    }
+  const getTrustLabel = (score: number) => {
+    if (score >= 4.8) return { label: "ممتاز", color: "text-emerald-600 bg-emerald-50" };
+    if (score >= 4.0) return { label: "جيد جداً", color: "text-blue-600 bg-blue-50" };
+    return { label: "موثق", color: "text-amber-600 bg-amber-50" };
   };
   const currentJob = activeJobs.find(j => j.status !== 'completed' && j.status !== 'cancelled');
+  const trustInfo = getTrustLabel(user?.trustScore || 5.0);
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" dir="rtl">
-      <div className="py-8 md:py-10 space-y-8">
+      <div className="py-8 md:py-12 space-y-10">
         {currentJob && (
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
-            <Card className="rounded-3xl border-primary bg-primary/5 shadow-lg overflow-hidden">
-              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6 text-right">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center">
-                    <Clock className="w-6 h-6 animate-pulse" />
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="rounded-[2.5rem] border-primary/50 bg-primary/5 shadow-2xl overflow-hidden border-2">
+              <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-8 text-right">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+                    <Clock className="w-8 h-8 animate-pulse" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-lg">مهمة جارية الآن في نواكشوط</h4>
-                    <p className="text-sm text-muted-foreground">{currentJob.serviceType} • {currentJob.address}</p>
+                    <h4 className="font-black text-2xl text-primary">لديك مهمة جارية!</h4>
+                    <p className="text-lg text-muted-foreground font-medium">{currentJob.serviceType} • {currentJob.address}</p>
                   </div>
                 </div>
-                <Button onClick={() => navigate(`/worker/job/${currentJob._id}`)} className="rounded-xl px-8 gap-2">المتابعة <ChevronLeft className="w-4 h-4" /></Button>
+                <Button onClick={() => navigate(`/worker/job/${currentJob._id}`)} className="rounded-2xl px-12 h-14 text-xl font-bold gap-3 shadow-xl">المتابعة للعمل <ChevronLeft className="w-6 h-6" /></Button>
               </CardContent>
             </Card>
           </motion.div>
         )}
-        <div className="grid md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2 rounded-3xl border-none shadow-soft bg-gradient-to-bl from-card to-emerald-50">
-            <CardContent className="p-8 flex items-center gap-6 text-right">
+        <div className="grid md:grid-cols-3 gap-8">
+          <Card className="md:col-span-2 rounded-[3rem] border-none shadow-soft bg-gradient-to-br from-card via-card to-emerald-50/30 overflow-hidden">
+            <CardContent className="p-10 flex flex-col sm:flex-row items-center gap-10 text-right">
               <div className="relative">
-                <div className="w-20 h-20 rounded-full bg-primary/10 border-4 border-white flex items-center justify-center text-3xl font-bold text-primary">{user?.name?.[0] || 'ف'}</div>
-                <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1 border-2 border-white"><ShieldCheck className="w-4 h-4 text-white" /></div>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-black">{user?.name || "فني موريتاني"}</h2>
-                  <Badge className="bg-emerald-100 text-emerald-700">موثق</Badge>
+                <div className="w-32 h-32 rounded-[2.5rem] bg-primary/10 border-8 border-white flex items-center justify-center text-5xl font-black text-primary shadow-xl">
+                  {user?.name?.[0] || 'ف'}
                 </div>
-                <p className="text-muted-foreground">رقم الهاتف: {user?.phone || "غير مسجل"}</p>
-                <div className="flex items-center gap-1 text-amber-500"><Star className="w-4 h-4 fill-current" /><span className="font-bold">{user?.trustScore?.toFixed(1) || "5.0"}</span></div>
+                {user?.kycStatus === 'verified' && (
+                  <div className="absolute -bottom-2 -right-2 bg-emerald-500 rounded-2xl p-2 border-4 border-white shadow-lg">
+                    <ShieldCheck className="w-6 h-6 text-white" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-4xl font-black tracking-tight">{user?.name || "فني صنعة"}</h2>
+                  <Badge className={cn("rounded-full px-6 py-1.5 text-sm font-bold border-none", trustInfo.color)}>
+                    <Award className="w-4 h-4 mr-2" /> مستوى {trustInfo.label}
+                  </Badge>
+                </div>
+                <p className="text-xl text-muted-foreground font-medium">الهاتف: {user?.phone || "غير مسجل"}</p>
+                <div className="flex items-center gap-2 text-amber-500 font-black text-2xl">
+                  <Star className="w-8 h-8 fill-current drop-shadow-sm" />
+                  <span>{user?.trustScore?.toFixed(1) || "5.0"}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-3xl border-none shadow-soft overflow-hidden">
-            <CardContent className={cn("p-8 h-full flex flex-col items-center justify-center gap-4 transition-colors", isOnline ? "bg-emerald-50" : "bg-slate-50")}>
-              <div className={cn("p-4 rounded-full", isOnline ? "bg-emerald-500 text-white" : "bg-slate-400 text-white")}><Power className="w-8 h-8" /></div>
-              <div className="text-center">
-                <p className="font-bold text-lg">{isOnline ? "أنت متصل الآن" : "أنت غير متصل"}</p>
-                <p className="text-sm text-muted-foreground">فعل وضع الاتصال لاستقبال طلبات نواكشوط</p>
+          <Card className="rounded-[3rem] border-none shadow-soft overflow-hidden group">
+            <CardContent className={cn(
+              "p-10 h-full flex flex-col items-center justify-center gap-6 transition-all duration-500",
+              isOnline ? "bg-emerald-50" : "bg-slate-50"
+            )}>
+              <div className={cn(
+                "w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110",
+                isOnline ? "bg-emerald-500 text-white" : "bg-slate-400 text-white"
+              )}>
+                <Power className="w-12 h-12" />
               </div>
-              <Switch checked={isOnline} onCheckedChange={handleToggleOnline} className="data-[state=checked]:bg-emerald-500" />
+              <div className="text-center space-y-2">
+                <p className="font-black text-2xl tracking-tight">{isOnline ? "متصل الآن" : "غير متصل"}</p>
+                <p className="text-muted-foreground font-medium">فعل وضع الاتصال لاستقبال الطلبات</p>
+              </div>
+              <Switch checked={isOnline} onCheckedChange={handleToggleOnline} className="scale-150 data-[state=checked]:bg-emerald-600" />
             </CardContent>
           </Card>
         </div>
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-            <StatCard title="إجمالي الأرباح" value={`${earnings.total} MRU`} icon={Wallet} color="text-emerald-500" />
-            <StatCard title="أرباح الأسبوع" value={`${earnings.weekly} MRU`} icon={TrendingUp} color="text-blue-500" />
-            <Card className="col-span-2 rounded-3xl border-none shadow-soft p-6">
-              <div className="flex items-center justify-between mb-6 text-right">
-                <h4 className="font-bold text-lg">تحليل الأرباح الأسبوعي (MRU)</h4>
-                <Button variant="ghost" size="sm" className="text-primary font-bold">سحب الرصيد <ArrowUpRight className="w-4 h-4 mr-1" /></Button>
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <StatCard title="إجمالي الأرباح" value={`${earnings.total} MRU`} icon={Wallet} color="text-emerald-500" />
+              <StatCard title="أرباح الأسبوع" value={`${earnings.weekly} MRU`} icon={TrendingUp} color="text-blue-500" />
+            </div>
+            <Card className="rounded-[3rem] border-none shadow-soft p-10">
+              <div className="flex items-center justify-between mb-8 text-right">
+                <h4 className="font-black text-2xl">تحليل الأداء الأسبوعي</h4>
+                <Button variant="outline" className="rounded-xl font-bold border-primary/20 text-primary">المحفظة الكاملة</Button>
               </div>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={earnings.chartData}>
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(v: any) => [`${v} MRU`, "المبلغ"]} />
-                    <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="h-64 w-full">
+                {earnings.chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={earnings.chartData}>
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 14, fontWeight: 700 }} />
+                      <Tooltip 
+                        cursor={{ fill: 'rgba(0,0,0,0.02)' }} 
+                        contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '15px' }} 
+                        formatter={(v: any) => [`${v} MRU`, "الأرباح"]}
+                      />
+                      <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground font-bold">لا توجد بيانات متاحة لهذا الأسبوع</div>
+                )}
               </div>
             </Card>
           </div>
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold text-right">الطلبات القريبة في منطقتك</h3>
-            {isOnline ? <JobCard onAccept={() => handleAcceptJob("mock-id")} /> : (
-              <div className="bg-accent/10 rounded-3xl p-8 text-center space-y-4 border-2 border-dashed border-primary/20">
-                <Power className="w-12 h-12 text-muted-foreground mx-auto opacity-50" />
-                <p className="text-sm text-muted-foreground">فعل وضع الاتصال لتبدأ في استقبال الطلبات في نواكشوط.</p>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black">طلبات قريبة منك</h3>
+              <Badge variant="outline" className="rounded-full">نواكشوط</Badge>
+            </div>
+            {isOnline ? (
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+                <JobCard onAccept={() => toast.info("سيتم تحويلك للطلب فوراً")} />
+              </motion.div>
+            ) : (
+              <div className="bg-muted/30 rounded-[3rem] p-12 text-center space-y-6 border-4 border-dashed border-muted flex flex-col items-center">
+                <ShieldAlert className="w-16 h-16 text-muted-foreground opacity-30" />
+                <p className="text-xl font-bold text-muted-foreground leading-relaxed">فعل وضع الاتصال لتبدأ في جني الأرباح من منزلك.</p>
               </div>
             )}
           </div>
@@ -154,29 +191,34 @@ export function WorkerDashboard() {
 }
 function StatCard({ title, value, icon: Icon, color }: any) {
   return (
-    <Card className="rounded-2xl border-none shadow-soft">
-      <CardContent className="p-6 flex items-center gap-4 text-right">
-        <div className={cn("p-3 rounded-xl bg-muted/50", color)}><Icon className="w-5 h-5" /></div>
-        <div><p className="text-xs text-muted-foreground">{title}</p><p className="text-lg font-bold">{value}</p></div>
+    <Card className="rounded-[2rem] border-none shadow-soft group hover:shadow-xl transition-all">
+      <CardContent className="p-8 flex items-center gap-6 text-right">
+        <div className={cn("w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center transition-transform group-hover:rotate-6 shadow-inner", color)}>
+          <Icon className="w-7 h-7" />
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground font-black mb-1">{title}</p>
+          <p className="text-2xl font-black tracking-tight">{value}</p>
+        </div>
       </CardContent>
     </Card>
   );
 }
 function JobCard({ onAccept }: any) {
   return (
-    <Card className="rounded-2xl shadow-soft border-primary/10 hover:border-primary transition-all text-right">
-      <CardContent className="p-6 space-y-4">
+    <Card className="rounded-[2.5rem] shadow-soft border-2 border-primary/5 hover:border-primary/20 transition-all text-right overflow-hidden">
+      <CardContent className="p-8 space-y-6">
         <div className="flex justify-between items-start">
-          <div className="text-right">
-            <Badge variant="outline" className="mb-2">سباكة</Badge>
-            <h4 className="text-lg font-bold">إصلاح تسريب مياه</h4>
+          <div className="space-y-2">
+            <Badge className="bg-primary/10 text-primary border-none rounded-lg px-4 font-bold">سباكة</Badge>
+            <h4 className="text-2xl font-black">إصلاح تسريب مياه</h4>
           </div>
-          <div className="text-left"><span className="text-xl font-black text-primary">250 MRU</span></div>
+          <div className="text-left"><span className="text-3xl font-black text-primary">250 MRU</span></div>
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> تفرغ زينة (1.2 كم)</span>
+        <div className="flex items-center gap-4 text-muted-foreground font-medium">
+          <span className="flex items-center gap-1"><MapPin className="w-5 h-5 text-primary" /> تفرغ زينة (1.2 كم)</span>
         </div>
-        <Button onClick={onAccept} className="w-full bg-primary text-white rounded-xl">قبول المهمة</Button>
+        <Button onClick={onAccept} className="w-full bg-primary text-white rounded-2xl h-14 text-xl font-black shadow-lg hover:bg-primary/90">قبول الطلب الآن</Button>
       </CardContent>
     </Card>
   );

@@ -1,24 +1,27 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 export const createRequest = mutation({
   args: {
     serviceType: v.string(),
     description: v.optional(v.string()),
     address: v.optional(v.string()),
+    location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
     const user = await ctx.db.get(userId);
-    if (user?.isFrozen) throw new Error("Account is frozen");
+    if (user?.isFrozen) throw new Error("تم تجميد حسابك، يرجى التواصل مع الإدارة.");
     const requestId = await ctx.db.insert("service_requests", {
       clientId: userId,
       serviceType: args.serviceType,
       description: args.description,
       address: args.address,
+      location: args.location,
       status: "pending",
-      price: 250, // Default estimate
+      price: 250, 
     });
     await ctx.db.insert("audit_logs", {
       action: "REQUEST_CREATED",
@@ -29,20 +32,42 @@ export const createRequest = mutation({
     return requestId;
   },
 });
+export const reportSOS = mutation({
+  args: {
+    requestId: v.id("service_requests"),
+    location: v.object({ lat: v.number(), lng: v.number() }),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    await ctx.db.insert("audit_logs", {
+      action: "EMERGENCY_SOS",
+      userId,
+      metadata: { 
+        requestId: args.requestId, 
+        location: args.location,
+        timestamp: new Date().toISOString()
+      },
+      timestamp: Date.now(),
+    });
+    // In a real app, this would trigger an SMS/Push to admins
+    return { success: true };
+  },
+});
 export const acceptContract = mutation({
   args: { requestId: v.id("service_requests") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
     const user = await ctx.db.get(userId);
-    if (user?.isFrozen) throw new Error("Account is frozen");
-    if (user?.role !== "worker") throw new Error("Only workers can accept jobs");
+    if (user?.isFrozen) throw new Error("حسابك مجمد");
+    if (user?.role !== "worker") throw new Error("يجب أن تكون فني لقبول الطلبات");
     const request = await ctx.db.get(args.requestId);
-    if (!request) throw new Error("Request not found");
+    if (!request) throw new Error("الطلب غير موجود");
     await ctx.db.patch(args.requestId, {
       status: "accepted",
       workerId: userId,
-      workerLocation: { lat: 24.7136, lng: 46.6753 },
+      workerLocation: user.location,
       workerETA: 15
     });
     await ctx.db.insert("audit_logs", {
@@ -92,12 +117,11 @@ export const submitReview = mutation({
       comment: args.comment,
       timestamp: Date.now(),
     });
-    const reviews = await ctx.db
-      .query("reviews")
-      .withIndex("by_workerId", (q) => q.eq("workerId", request.workerId!))
-      .collect();
-    const avg = reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length;
-    await ctx.db.patch(request.workerId, { trustScore: avg });
+    // Centralized trust score update using internal mutation
+    await ctx.runMutation(internal.users.updateTrustScore, {
+      userId: request.workerId,
+      increment: args.rating
+    });
   },
 });
 export const getJobDetails = query({
@@ -177,9 +201,7 @@ export const getWorkerEarnings = query({
     const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const weeklyRequests = requests.filter(r => (r.actualEndTime || 0) > oneWeekAgo);
     const weekly = weeklyRequests.reduce((sum, r) => sum + (r.price || 0), 0);
-    // Map Arabic weekdays
     const arabicDays = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-    // Initialize chart with last 7 days
     const chartData = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now - i * 24 * 60 * 60 * 1000);
@@ -187,8 +209,8 @@ export const getWorkerEarnings = query({
       const dayTotal = weeklyRequests
         .filter(r => {
           const reqDate = new Date(r.actualEndTime!);
-          return reqDate.getDate() === d.getDate() && 
-                 reqDate.getMonth() === d.getMonth() && 
+          return reqDate.getDate() === d.getDate() &&
+                 reqDate.getMonth() === d.getMonth() &&
                  reqDate.getFullYear() === d.getFullYear();
         })
         .reduce((sum, r) => sum + (r.price || 0), 0);
