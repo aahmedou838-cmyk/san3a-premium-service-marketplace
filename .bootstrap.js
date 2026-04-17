@@ -79,7 +79,8 @@ function updateWranglerJsonc() {
 function runSetupCommands() {
     const commands = [
     "bun add @fontsource/cairo@^5.0.22",
-    "bun add react-webcam@^7.1.5"
+    "bun add react-webcam@^7.1.5",
+    "bun add recharts"
 ];
     
     if (commands.length === 0) {
