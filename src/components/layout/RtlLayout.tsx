@@ -1,11 +1,11 @@
 import React from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { 
-  Home, 
-  User, 
-  Settings, 
-  Bell, 
-  ShieldCheck, 
+import {
+  Home,
+  User,
+  Settings,
+  Bell,
+  ShieldCheck,
   LayoutDashboard,
   ClipboardList
 } from "lucide-react";
@@ -22,8 +22,8 @@ export function RtlLayout() {
     { label: "الحساب", path: "/profile", icon: User, roles: ["client", "worker", "admin"] },
   ];
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row-reverse">
-      {/* Desktop Sidebar (Right Side for RTL) */}
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+      {/* Desktop Sidebar (Auto-placed on Right in RTL) */}
       <aside className="hidden md:flex w-64 border-l bg-card flex-col sticky top-0 h-screen">
         <div className="p-6 border-b flex items-center justify-between">
           <span className="text-2xl font-bold text-primary">صنعة</span>
@@ -36,8 +36,8 @@ export function RtlLayout() {
               to={item.path}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all",
-                pathname === item.path 
-                  ? "bg-primary text-primary-foreground shadow-lg" 
+                pathname === item.path
+                  ? "bg-primary text-primary-foreground shadow-lg"
                   : "hover:bg-accent text-muted-foreground hover:text-foreground"
               )}
             >

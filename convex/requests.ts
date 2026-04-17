@@ -166,26 +166,34 @@ export const getWorkerEarnings = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return { total: 0, weekly: 0, data: [] };
+    if (!userId) return { total: 0, weekly: 0, chartData: [] };
     const requests = await ctx.db
       .query("service_requests")
       .withIndex("by_worker", (q) => q.eq("workerId", userId))
       .filter((q) => q.eq(q.field("status"), "completed"))
       .collect();
     const total = requests.reduce((sum, r) => sum + (r.price || 0), 0);
-    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const weekly = requests
-      .filter(r => (r.actualEndTime || 0) > oneWeekAgo)
-      .reduce((sum, r) => sum + (r.price || 0), 0);
-    const chartData = [
-      { day: "السبت", amount: 0 },
-      { day: "الأحد", amount: 0 },
-      { day: "الاثنين", amount: 0 },
-      { day: "الثلاثاء", amount: 0 },
-      { day: "الأربعاء", amount: 0 },
-      { day: "الخميس", amount: 0 },
-      { day: "الجمعة", amount: 0 },
-    ];
+    const now = Date.now();
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const weeklyRequests = requests.filter(r => (r.actualEndTime || 0) > oneWeekAgo);
+    const weekly = weeklyRequests.reduce((sum, r) => sum + (r.price || 0), 0);
+    // Map Arabic weekdays
+    const arabicDays = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    // Initialize chart with last 7 days
+    const chartData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now - i * 24 * 60 * 60 * 1000);
+      const dayName = arabicDays[d.getDay()];
+      const dayTotal = weeklyRequests
+        .filter(r => {
+          const reqDate = new Date(r.actualEndTime!);
+          return reqDate.getDate() === d.getDate() && 
+                 reqDate.getMonth() === d.getMonth() && 
+                 reqDate.getFullYear() === d.getFullYear();
+        })
+        .reduce((sum, r) => sum + (r.price || 0), 0);
+      chartData.push({ day: dayName, amount: dayTotal });
+    }
     return { total, weekly, chartData };
   },
 });

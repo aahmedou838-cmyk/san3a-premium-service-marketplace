@@ -58,7 +58,7 @@ export function HomePage() {
                 <h1 className="text-4xl md:text-7xl font-black">أهلاً بك في <span className="text-primary">صنعة</span></h1>
                 <p className="text-2xl text-muted-foreground max-w-2xl mx-auto">
                   {user?.role
-                    ? `مرحباً بك مجدداً: ${user?.phone || "مستخدم صنعة"}`
+                    ? `مرحباً بك: ${user.phone || user.email || "مستخدم صنعة"}`
                     : "المنصة الأولى لربط المهنيين بالعملاء في موريتانيا. اختر طريقك للمتابعة."}
                 </p>
               </motion.div>
@@ -66,7 +66,7 @@ export function HomePage() {
                 <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
                   <RoleCard
                     title="أبحث عن فني"
-                    description="سباكة، كهرباء، ميكانيكا.. احصل على أفضل الخدمات في نواكشوط بضغطة زر."
+                    description="سباكة، كهرباء، ميكانيكا.. احصل على أفضل الخدمات بضغطة زر في نواكشوط."
                     icon={User}
                     color="bg-primary"
                     onClick={() => handleRoleSelection("client")}

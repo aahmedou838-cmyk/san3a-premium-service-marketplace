@@ -3,6 +3,7 @@ import { Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -62,18 +63,18 @@ export function ReviewModal({ requestId, isOpen, onClose }: ReviewModalProps) {
               onClick={() => setRating(star)}
               className="focus:outline-none"
             >
-              <Star 
+              <Star
                 className={cn(
                   "w-10 h-10 transition-colors",
                   star <= rating ? "text-amber-500 fill-current" : "text-muted border-none"
-                )} 
+                )}
               />
             </motion.button>
           ))}
         </div>
         <div className="space-y-4">
           <p className="text-sm font-bold text-right">أضف ملاحظاتك (اختياري):</p>
-          <Textarea 
+          <Textarea
             placeholder="أخبرنا المزيد عن جودة العمل..."
             className="rounded-2xl resize-none text-right"
             value={comment}
@@ -81,15 +82,15 @@ export function ReviewModal({ requestId, isOpen, onClose }: ReviewModalProps) {
           />
         </div>
         <DialogFooter className="mt-6 flex-row gap-3">
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             disabled={submitting}
             className="flex-1 rounded-xl h-12 text-lg"
           >
             إرسال التقييم
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={onClose}
             className="rounded-xl h-12"
           >
@@ -100,4 +101,3 @@ export function ReviewModal({ requestId, isOpen, onClose }: ReviewModalProps) {
     </Dialog>
   );
 }
-import { cn } from "@/lib/utils";
