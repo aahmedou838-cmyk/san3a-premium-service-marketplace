@@ -15,8 +15,10 @@ import { convex } from '@/lib/convex';
 import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
 import { ClientDashboard } from '@/pages/client/ClientDashboard'
+import { LiveTracking } from '@/pages/client/LiveTracking'
 import { WorkerDashboard } from '@/pages/worker/WorkerDashboard'
 import { WorkerKYC } from '@/pages/worker/WorkerKYC'
+import { ActiveJob } from '@/pages/worker/ActiveJob'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { RtlLayout } from '@/components/layout/RtlLayout'
 const queryClient = new QueryClient();
@@ -31,8 +33,10 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
     children: [
       { path: "/client", element: <ClientDashboard /> },
+      { path: "/client/track/:requestId", element: <LiveTracking /> },
       { path: "/worker", element: <WorkerDashboard /> },
       { path: "/worker/kyc", element: <WorkerKYC /> },
+      { path: "/worker/job/:requestId", element: <ActiveJob /> },
       { path: "/admin", element: <AdminDashboard /> },
     ],
   },

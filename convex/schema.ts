@@ -17,14 +17,34 @@ const applicationTables = {
     workerId: v.optional(v.id("users")),
     serviceType: v.string(),
     description: v.optional(v.string()),
-    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("in_progress"), v.literal("completed"), v.literal("cancelled")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("arrived"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("cancelled")
+    ),
     price: v.optional(v.number()),
     address: v.optional(v.string()),
     location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+    workerLocation: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+    workerETA: v.optional(v.number()),
+    actualStartTime: v.optional(v.number()),
+    actualEndTime: v.optional(v.number()),
     contractUrl: v.optional(v.string()),
   }).index("by_client", ["clientId"])
     .index("by_worker", ["workerId"])
     .index("by_status", ["status"]),
+  reviews: defineTable({
+    requestId: v.id("service_requests"),
+    clientId: v.id("users"),
+    workerId: v.id("users"),
+    rating: v.number(),
+    comment: v.string(),
+    timestamp: v.number(),
+  }).index("by_requestId", ["requestId"])
+    .index("by_workerId", ["workerId"]),
   audit_logs: defineTable({
     action: v.string(),
     userId: v.id("users"),
