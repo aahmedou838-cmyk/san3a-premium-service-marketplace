@@ -82,7 +82,8 @@ function runSetupCommands() {
     "bun add react-webcam@^7.1.5",
     "bun add recharts",
     "bun add leaflet react-leaflet @types/leaflet",
-    "bun add -D @types/leaflet"
+    "bun add -D @types/leaflet",
+    "bun add lucide-react framer-motion date-fns recharts clsx tailwind-merge leaflet react-leaflet @types/leaflet react-webcam"
 ];
     
     if (commands.length === 0) {
