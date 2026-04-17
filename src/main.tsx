@@ -16,6 +16,7 @@ import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
 import { ClientDashboard } from '@/pages/client/ClientDashboard'
 import { WorkerDashboard } from '@/pages/worker/WorkerDashboard'
+import { WorkerKYC } from '@/pages/worker/WorkerKYC'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { RtlLayout } from '@/components/layout/RtlLayout'
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/client", element: <ClientDashboard /> },
       { path: "/worker", element: <WorkerDashboard /> },
+      { path: "/worker/kyc", element: <WorkerKYC /> },
       { path: "/admin", element: <AdminDashboard /> },
     ],
   },

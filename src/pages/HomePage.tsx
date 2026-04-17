@@ -7,13 +7,33 @@ import { motion } from "framer-motion";
 import { User, Briefcase, Sparkles, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 export function HomePage() {
   const user = useQuery(api.auth.loggedInUser);
   const setRoleMutation = useMutation(api.users.setUserRole);
   const navigate = useNavigate();
   const handleRoleSelection = async (role: "client" | "worker") => {
-    await setRoleMutation({ role });
-    navigate(role === "client" ? "/client" : "/worker");
+    try {
+      await setRoleMutation({ role });
+      if (role === "worker") {
+        navigate("/worker/kyc");
+      } else {
+        navigate("/client");
+      }
+    } catch (error) {
+      console.error("Failed to set role", error);
+    }
+  };
+  const navigateToDashboard = () => {
+    if (user?.role === "worker") {
+      if (user.kycStatus === "verified") {
+        navigate("/worker");
+      } else {
+        navigate("/worker/kyc");
+      }
+    } else {
+      navigate("/client");
+    }
   };
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -36,28 +56,28 @@ export function HomePage() {
           </Unauthenticated>
           <Authenticated>
             <div className="space-y-12">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-4"
               >
                 <h1 className="text-4xl md:text-6xl font-black">مرحباً بك في <span className="text-primary">صنعة</span></h1>
                 <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                  {user?.role 
-                    ? `أهلاً بك مرة أخرى، ${user?.email}` 
+                  {user?.role
+                    ? `أهلاً بك مرة أخرى، ${user?.email}`
                     : "كيف يمكننا مساعدتك اليوم؟ يرجى اختيار نوع حسابك للمتابعة."}
                 </p>
               </motion.div>
               {!user?.role ? (
                 <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                  <RoleCard 
+                  <RoleCard
                     title="أبحث عن فني"
                     description="سباكة، كهرباء، نجارة.. ابحث عن أفضل المحترفين في منطقتك بضغطة زر."
                     icon={User}
                     color="bg-primary"
                     onClick={() => handleRoleSelection("client")}
                   />
-                  <RoleCard 
+                  <RoleCard
                     title="أنا مقدم خدمة"
                     description="انضم إلى شبكة المحترفين لدينا، ابدأ في استقبال الطلبات وزيادة دخلك اليوم."
                     icon={Briefcase}
@@ -71,10 +91,10 @@ export function HomePage() {
                     <CheckCircle className="w-6 h-6" />
                     تم تحديد دورك كـ {user.role === 'client' ? 'عميل' : 'مقدم خدمة'}
                   </div>
-                  <Button 
-                    size="lg" 
+                  <Button
+                    size="lg"
                     className="rounded-full px-12"
-                    onClick={() => navigate(user.role === "client" ? "/client" : "/worker")}
+                    onClick={navigateToDashboard}
                   >
                     الانتقال للوحة التحكم
                   </Button>

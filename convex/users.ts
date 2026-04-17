@@ -1,12 +1,18 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 export const setUserRole = mutation({
   args: { role: v.union(v.literal("client"), v.literal("worker")) },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
-    await ctx.db.patch(userId, { role: args.role, kycStatus: "none" });
+    const existingUser = await ctx.db.get(userId);
+    if (existingUser?.role) throw new Error("Role already set");
+    await ctx.db.patch(userId, { 
+      role: args.role, 
+      kycStatus: "none",
+      trustScore: 0
+    });
     await ctx.db.insert("audit_logs", {
       action: "ROLE_SET",
       userId,
@@ -15,12 +21,36 @@ export const setUserRole = mutation({
     });
   },
 });
-export const getCurrentUser = query({
+export const submitKYC = mutation({
+  args: {
+    name: v.string(),
+    phone: v.string(),
+    skills: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    await ctx.db.patch(userId, {
+      name: args.name,
+      phone: args.phone,
+      kycStatus: "pending",
+    });
+    await ctx.db.insert("audit_logs", {
+      action: "KYC_SUBMISSION",
+      userId,
+      metadata: { skills: args.skills },
+      timestamp: Date.now(),
+    });
+  },
+});
+export const listAllUsers = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
-    return await ctx.db.get(userId);
+    const adminId = await getAuthUserId(ctx);
+    if (!adminId) throw new Error("Unauthorized");
+    const adminUser = await ctx.db.get(adminId);
+    if (adminUser?.role !== "admin") return [];
+    return await ctx.db.query("users").collect();
   },
 });
 export const toggleUserFreeze = mutation({
@@ -36,8 +66,25 @@ export const toggleUserFreeze = mutation({
     await ctx.db.insert("audit_logs", {
       action: newStatus ? "USER_FROZEN" : "USER_UNFROZEN",
       userId: adminId,
-      metadata: { targetUserId: args.userId },
+      metadata: { targetUserId: args.userId, performedBy: adminId },
       timestamp: Date.now(),
     });
+  },
+});
+export const updateTrustScore = internalMutation({
+  args: { userId: v.id("users"), increment: v.number() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return;
+    const newScore = (user.trustScore ?? 0) + args.increment;
+    await ctx.db.patch(args.userId, { trustScore: newScore });
+  },
+});
+export const loggedInUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    return await ctx.db.get(userId);
   },
 });
