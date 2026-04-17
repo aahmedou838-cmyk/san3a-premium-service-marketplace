@@ -5,13 +5,15 @@ const applicationTables = {
   users: defineTable({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
+    phone: v.optional(v.string()), // Primary identifier for Mauritania
     role: v.optional(v.union(v.literal("client"), v.literal("worker"), v.literal("admin"))),
     isFrozen: v.optional(v.boolean()),
     kycStatus: v.optional(v.union(v.literal("none"), v.literal("pending"), v.literal("verified"), v.literal("rejected"))),
-    phone: v.optional(v.string()),
     avatar: v.optional(v.string()),
     trustScore: v.optional(v.number()),
-  }).index("by_role", ["role"]),
+  })
+    .index("by_role", ["role"])
+    .index("by_phone", ["phone"]),
   service_requests: defineTable({
     clientId: v.id("users"),
     workerId: v.optional(v.id("users")),

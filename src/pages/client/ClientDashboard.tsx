@@ -1,15 +1,13 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useNavigate } from "react-router-dom";
 import {
   Zap,
   Droplets,
-  Wrench,
-  Hammer,
   Car,
-  Paintbrush,
+  Sparkles,
   Navigation,
   CheckCircle2,
   ChevronLeft
@@ -20,14 +18,11 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { DigitalContract } from "@/components/contracts/DigitalContract";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ReviewModal } from "@/components/ReviewModal";
 const services = [
-  { id: "electricity", name: "كهربائي", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-50" },
-  { id: "plumbing", name: "سباك", icon: Droplets, color: "text-blue-500", bg: "bg-blue-50" },
-  { id: "carpentry", name: "نجار", icon: Hammer, color: "text-orange-500", bg: "bg-orange-50" },
-  { id: "mechanic", name: "ميكانيكي", icon: Car, color: "text-red-500", bg: "bg-red-50" },
-  { id: "ac", name: "فني تكييف", icon: Wrench, color: "text-emerald-500", bg: "bg-emerald-50" },
-  { id: "painting", name: "صباغ", icon: Paintbrush, color: "text-purple-500", bg: "bg-purple-50" },
+  { id: "plumbing", name: "سباكة", icon: Droplets, color: "text-blue-500", bg: "bg-blue-50" },
+  { id: "electricity", name: "كهرباء", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-50" },
+  { id: "mechanic", name: "ميكانيكا", icon: Car, color: "text-red-500", bg: "bg-red-50" },
+  { id: "cleaning", name: "تنظيف", icon: Sparkles, color: "text-emerald-500", bg: "bg-emerald-50" },
 ];
 export function ClientDashboard() {
   const navigate = useNavigate();
@@ -41,9 +36,9 @@ export function ClientDashboard() {
     try {
       await createRequest({
         serviceType: serviceName,
-        address: "حي النرجس، الرياض",
+        address: "نواكشوط، تفرغ زينة",
       });
-      toast.success("تم إرسال طلبك! جاري البحث عن أقرب فني...");
+      toast.success("تم إرسال طلبك! جاري البحث عن فني في نواكشوط...");
     } catch (err: any) {
       toast.error(err.message || "فشل في إنشاء الطلب");
     }
@@ -64,13 +59,13 @@ export function ClientDashboard() {
     }
   };
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" dir="rtl">
       <div className="py-8 md:py-12 space-y-12">
-        <section className="space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">ما هي الخدمة التي تحتاجها؟</h2>
-          <p className="text-muted-foreground">اختر نوع الخدمة وسنقوم بربطك بأقرب فني متخصص.</p>
+        <section className="space-y-2 text-right">
+          <h2 className="text-3xl font-black tracking-tight">ما هي الخدمة التي تحتاجها؟</h2>
+          <p className="text-muted-foreground">اختر الخدمة وسنقوم بربطك بأفضل الفنيين في موريتانيا.</p>
         </section>
-        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {services.map((service) => (
             <motion.button
               key={service.id}
@@ -80,11 +75,11 @@ export function ClientDashboard() {
               className="group text-right"
             >
               <Card className="border-none shadow-soft hover:shadow-xl transition-all h-full bg-card rounded-3xl overflow-hidden">
-                <CardContent className="p-6 flex flex-col items-center gap-4">
-                  <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6", service.bg)}>
-                    <service.icon className={cn("w-8 h-8", service.color)} />
+                <CardContent className="p-8 flex flex-col items-center gap-4">
+                  <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6", service.bg)}>
+                    <service.icon className={cn("w-10 h-10", service.color)} />
                   </div>
-                  <span className="font-bold text-lg">{service.name}</span>
+                  <span className="font-bold text-xl">{service.name}</span>
                 </CardContent>
               </Card>
             </motion.button>
@@ -92,36 +87,30 @@ export function ClientDashboard() {
         </section>
         {activeRequests.length > 0 && (
           <section className="space-y-6">
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            <h3 className="text-xl font-bold flex items-center gap-2 text-right">
               <Navigation className="w-5 h-5 text-primary" /> الطلبات النشطة
             </h3>
             <div className="grid gap-4">
               {activeRequests.map((req) => (
                 <Card key={req._id} className="rounded-3xl border-primary/20 bg-card overflow-hidden border shadow-lg">
-                  <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
+                  <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6 text-right">
+                    <div className="flex items-center gap-4 w-full">
                       <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                         <CheckCircle2 className="w-6 h-6" />
                       </div>
-                      <div className="text-right">
+                      <div className="flex-1">
                         <h4 className="font-bold text-lg">{req.serviceType}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {req.status === 'pending' ? 'بانتظار الموافقة' : 
-                           req.status === 'accepted' ? 'الفني في الطريق' : 'جاري التنفيذ'}
-                        </p>
+                        <p className="text-sm text-muted-foreground">الحالة: {req.status === 'pending' ? 'بانتظار الموافقة' : 'جاري التنفيذ'}</p>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-black text-primary text-xl">250 MRU</p>
                       </div>
                     </div>
                     <div className="flex gap-2 w-full md:w-auto">
                       {req.status === 'pending' ? (
-                        <Button onClick={() => openContract(req)} className="flex-1 rounded-xl">عرض العقد الرقمي</Button>
+                        <Button onClick={() => openContract(req)} className="flex-1 rounded-xl px-8">عرض العقد</Button>
                       ) : (
-                        <Button 
-                          onClick={() => navigate(`/client/track/${req._id}`)} 
-                          variant="secondary" 
-                          className="flex-1 rounded-xl gap-2"
-                        >
-                          تتبع الفني <ChevronLeft className="w-4 h-4" />
-                        </Button>
+                        <Button onClick={() => navigate(`/client/track/${req._id}`)} variant="secondary" className="flex-1 rounded-xl gap-2">تتبع الفني <ChevronLeft className="w-4 h-4" /></Button>
                       )}
                     </div>
                   </CardContent>
@@ -137,7 +126,7 @@ export function ClientDashboard() {
             <DigitalContract
               requestId={selectedRequest._id}
               serviceType={selectedRequest.serviceType}
-              workerName="فني معتمد"
+              workerName="فني صنعة معتمد"
               clientName={user?.name || "عميل صنعة"}
               estimatedPrice={250}
               onAccept={onAcceptContract}

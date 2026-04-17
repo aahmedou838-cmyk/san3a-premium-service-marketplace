@@ -2,32 +2,26 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from "@shared/auth";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
-
-type FormStep = "signIn" | "signUp" | "verifyEmail" | "forgotPassword" | "resetPassword";
-type FieldErrorKey = "email" | "password" | "newPassword" | "otp";
+type FormStep = "signIn" | "signUp" | "verifyPhone" | "forgotPassword" | "resetPassword";
+type FieldErrorKey = "phone" | "password" | "newPassword" | "otp";
 type FieldErrors = Partial<Record<FieldErrorKey, string>>;
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+const MAURITANIA_PHONE_PATTERN = /^(?:\+222)?[234][0-9]{7}$/;
 export function SignInForm() {
   const { signIn } = useAuthActions();
   const [step, setStep] = useState<FormStep>("signUp");
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
-
   const resetForm = useCallback(() => {
     setPassword("");
     setNewPassword("");
@@ -35,66 +29,35 @@ export function SignInForm() {
     setSubmitting(false);
     setFieldErrors({});
   }, []);
-
   const clearFieldError = useCallback((field: FieldErrorKey) => {
-    setFieldErrors((current) =>
-      current[field]
-        ? {
-            ...current,
-            [field]: undefined,
-          }
-        : current
-    );
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }, []);
-
   const validateCurrentStep = useCallback(() => {
     const nextErrors: FieldErrors = {};
-    const normalizedEmail = email.trim();
-
+    const normalizedPhone = phone.trim().replace(/\s/g, "");
     if (step === "signIn" || step === "signUp" || step === "forgotPassword") {
-      if (!normalizedEmail) {
-        nextErrors.email = "Email is required.";
-      } else if (!EMAIL_PATTERN.test(normalizedEmail)) {
-        nextErrors.email = "Enter a valid email address.";
+      if (!normalizedPhone) {
+        nextErrors.phone = "رقم الهاتف مطلوب.";
+      } else if (!MAURITANIA_PHONE_PATTERN.test(normalizedPhone)) {
+        nextErrors.phone = "أدخل رقم هاتف موريتاني صحيح (8 أرقام).";
       }
     }
-
     if (step === "signIn" || step === "signUp") {
-      if (!password) {
-        nextErrors.password = "Password is required.";
-      } else if (step === "signUp" && password.length < PASSWORD_MIN_LENGTH) {
-        nextErrors.password = PASSWORD_TOO_SHORT_MESSAGE;
-      }
+      if (!password) nextErrors.password = "كلمة المرور مطلوبة.";
     }
-
-    if (step === "verifyEmail" || step === "resetPassword") {
-      if (otp.length !== 6) {
-        nextErrors.otp = "Enter the 6-digit code from your email.";
-      }
+    if (step === "verifyPhone" || step === "resetPassword") {
+      if (otp.length !== 6) nextErrors.otp = "أدخل الرمز المكون من 6 أرقام.";
     }
-
-    if (step === "resetPassword") {
-      if (!newPassword) {
-        nextErrors.newPassword = "New password is required.";
-      } else if (newPassword.length < PASSWORD_MIN_LENGTH) {
-        nextErrors.newPassword = PASSWORD_TOO_SHORT_MESSAGE;
-      }
-    }
-
     setFieldErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
-  }, [email, newPassword, otp, password, step]);
-
+  }, [phone, otp, password, step]);
   const handleSubmit = useCallback(async () => {
-    if (!validateCurrentStep()) {
-      return;
-    }
-
+    if (!validateCurrentStep()) return;
     setSubmitting(true);
-    const normalizedEmail = email.trim();
+    let normalizedPhone = phone.trim().replace(/\s/g, "");
+    if (!normalizedPhone.startsWith("+222")) normalizedPhone = "+222" + normalizedPhone;
     const formData = new FormData();
-    formData.set("email", normalizedEmail);
-
+    formData.set("email", normalizedPhone); // Using phone as identifier in the 'email' field for the provider
     try {
       switch (step) {
         case "signIn":
@@ -102,367 +65,112 @@ export function SignInForm() {
           formData.set("flow", "signIn");
           await signIn("password", formData);
           break;
-
         case "signUp":
           formData.set("password", password);
           formData.set("flow", "signUp");
           try {
             await signIn("password", formData);
-          } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            if (msg.includes("verify") || msg.includes("OTP") || msg.includes("email-verification")) {
-              resetForm();
-              setStep("verifyEmail");
+          } catch (error: any) {
+            if (error.message.includes("verify") || error.message.includes("OTP")) {
+              setStep("verifyPhone");
               setResendCooldown(60);
-              toast.info("Check your email for a verification code.");
+              toast.info("تم إرسال رمز التحقق إلى هاتفك.");
               return;
             }
             throw error;
           }
-          resetForm();
-          setStep("verifyEmail");
+          setStep("verifyPhone");
           setResendCooldown(60);
-          toast.info("Check your email for a verification code.");
-          return;
-
-        case "verifyEmail":
+          toast.info("تم إرسال رمز التحقق إلى هاتفك.");
+          break;
+        case "verifyPhone":
           formData.set("code", otp);
           formData.set("flow", "email-verification");
           await signIn("password", formData);
-          toast.success("Email verified!");
+          toast.success("تم التحقق من الهاتف بنجاح!");
           break;
-
         case "forgotPassword":
           formData.set("flow", "reset");
           await signIn("password", formData);
-          resetForm();
           setStep("resetPassword");
           setResendCooldown(60);
-          toast.info("Check your email for a reset code.");
-          return;
-
+          toast.info("تم إرسال رمز إعادة التعيين.");
+          break;
         case "resetPassword":
           formData.set("code", otp);
           formData.set("newPassword", newPassword);
           formData.set("flow", "reset-verification");
           await signIn("password", formData);
-          toast.success("Password reset successfully!");
-          resetForm();
+          toast.success("تم تغيير كلمة المرور!");
           setStep("signIn");
-          return;
+          break;
       }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      const lowerMsg = msg.toLowerCase();
-
-      if (lowerMsg.includes("rate_limit") || msg.includes("429") || lowerMsg.includes("toomanyfailedattempts")) {
-        toast.error("Too many attempts. Please wait a few minutes before trying again.");
-      } else if (
-        lowerMsg.includes("invalid password") ||
-        lowerMsg.includes("password requirement") ||
-        lowerMsg.includes("password must be at least")
-      ) {
-        setFieldErrors((current) => ({
-          ...current,
-          [step === "resetPassword" ? "newPassword" : "password"]: PASSWORD_TOO_SHORT_MESSAGE,
-        }));
-      } else if (lowerMsg.includes("invalidsecret") || lowerMsg.includes("invalid credentials")) {
-        setFieldErrors((current) => ({
-          ...current,
-          password: "Incorrect password. Please try again.",
-        }));
-      } else if (
-        lowerMsg.includes("invalid email") ||
-        lowerMsg.includes("email format") ||
-        lowerMsg.includes("valid email address")
-      ) {
-        setFieldErrors((current) => ({
-          ...current,
-          email: "Enter a valid email address.",
-        }));
-      } else if (lowerMsg.includes("invalidaccountid") || lowerMsg.includes("could not find")) {
-        if (step === "signIn") {
-          // Auto-fallback: no account found, switch to sign-up and retry
-          resetForm();
-          setStep("signUp");
-          setPassword(password);
-          toast.info("No account found. Switched to sign up - please submit again.");
-        } else if (step === "forgotPassword") {
-          resetForm();
-          setStep("resetPassword");
-          setResendCooldown(60);
-          toast.info("If an account exists with this email, a reset code has been sent.");
-          return;
-        } else {
-          setFieldErrors((current) => ({
-            ...current,
-            email: "Account not found. Please check your email address.",
-          }));
-        }
-      } else if (
-        lowerMsg.includes("verify code") ||
-        lowerMsg.includes("verification code") ||
-        lowerMsg.includes("invalid code") ||
-        lowerMsg.includes("expired")
-      ) {
-        setFieldErrors((current) => ({
-          ...current,
-          otp: "Invalid or expired code. Please try again or request a new one.",
-        }));
-      } else if (lowerMsg.includes("already exists") || lowerMsg.includes("unique") || lowerMsg.includes("duplicate")) {
-        setFieldErrors((current) => ({
-          ...current,
-          email: "An account with this email already exists. Please sign in instead.",
-        }));
-      } else if (lowerMsg.includes("deleted")) {
-        toast.error("This account has been deleted. Please create a new account.");
-      } else if (msg.includes("Failed to send")) {
-        toast.error("Could not send email. Please try again later.");
-      } else if (lowerMsg.includes("not configured") || msg.includes("SITE_URL") || lowerMsg.includes("not enabled")) {
-        toast.error("Email service is not available. Please contact support.");
-      } else if (msg.includes("Missing") && msg.includes("param")) {
-        toast.error("Something went wrong. Please refresh the page and try again.");
-      } else if (step === "signIn") {
-        toast.error("Could not sign in. Please check your credentials.");
-      } else if (step === "signUp") {
-        toast.error("Could not create account. Please try again.");
-      } else {
-        toast.error(msg || "Something went wrong. Please try again.");
-      }
+    } catch (error: any) {
+      toast.error(error.message || "حدث خطأ ما");
     } finally {
       setSubmitting(false);
     }
-  }, [step, email, password, newPassword, otp, signIn, resetForm, validateCurrentStep]);
-
-  const handleResendCode = useCallback(async () => {
-    if (resendCooldown > 0) return;
-    setSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.set("email", email);
-      formData.set("flow", step === "verifyEmail" ? "email-verification" : "reset");
-      await signIn("password", formData);
-      setResendCooldown(60);
-      toast.info("New code sent to your email.");
-    } catch {
-      toast.error("Failed to resend code. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  }, [email, resendCooldown, signIn, step]);
-
-  const inputClass = "w-full px-4 py-3 text-base bg-secondary text-secondary-foreground placeholder:text-muted-foreground border border-input rounded-lg focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-slate-950 transition-all duration-200 outline-none";
-  const buttonClass = "w-full px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-semibold rounded-lg";
-  const linkClass = "text-primary hover:text-primary/80 hover:underline font-medium cursor-pointer transition-colors duration-200";
-
+  }, [step, phone, password, newPassword, otp, signIn, validateCurrentStep]);
+  const inputClass = "w-full px-4 py-3 text-base bg-secondary text-right text-secondary-foreground border border-input rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all";
+  const buttonClass = "w-full px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-all font-bold rounded-xl disabled:opacity-50";
   return (
-    <div className="w-full">
-      <form
-        className="flex flex-col gap-4"
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void handleSubmit();
-        }}
-      >
+    <div className="w-full" dir="rtl">
+      <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }}>
         {(step === "signIn" || step === "signUp" || step === "forgotPassword") && (
           <div>
             <input
-              className={`${inputClass} ${fieldErrors.email ? "border-destructive focus:ring-destructive/20" : ""}`}
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                clearFieldError("email");
-              }}
-              required
+              className={inputClass}
+              type="tel"
+              placeholder="رقم الهاتف (222 xx xxx xxx)"
+              value={phone}
+              onChange={(e) => { setPhone(e.target.value); clearFieldError("phone"); }}
               disabled={submitting}
-              autoComplete="email"
-              aria-invalid={Boolean(fieldErrors.email)}
-              aria-describedby={fieldErrors.email ? "auth-email-error" : undefined}
             />
-            {fieldErrors.email && (
-              <p id="auth-email-error" className="mt-1 text-sm text-destructive" role="alert">
-                {fieldErrors.email}
-              </p>
-            )}
+            {fieldErrors.phone && <p className="mt-1 text-xs text-destructive">{fieldErrors.phone}</p>}
           </div>
         )}
-
         {(step === "signIn" || step === "signUp") && (
           <div>
             <input
-              className={`${inputClass} ${fieldErrors.password ? "border-destructive focus:ring-destructive/20" : ""}`}
+              className={inputClass}
               type="password"
-              placeholder="Password"
+              placeholder="كلمة المرور"
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                clearFieldError("password");
-              }}
-              required
-              minLength={step === "signUp" ? PASSWORD_MIN_LENGTH : undefined}
+              onChange={(e) => { setPassword(e.target.value); clearFieldError("password"); }}
               disabled={submitting}
-              autoComplete={step === "signUp" ? "new-password" : "current-password"}
-              aria-invalid={Boolean(fieldErrors.password)}
-              aria-describedby={fieldErrors.password ? "auth-password-error" : step === "signUp" ? "auth-password-hint" : undefined}
             />
-            {fieldErrors.password ? (
-              <p id="auth-password-error" className="mt-1 text-sm text-destructive" role="alert">
-                {fieldErrors.password}
-              </p>
-            ) : step === "signUp" ? (
-              <p id="auth-password-hint" className="mt-1 text-xs text-muted-foreground">
-                Minimum {PASSWORD_MIN_LENGTH} characters
-              </p>
-            ) : null}
+            {fieldErrors.password && <p className="mt-1 text-xs text-destructive">{fieldErrors.password}</p>}
           </div>
         )}
-
-        {(step === "verifyEmail" || step === "resetPassword") && (
-          <div className="flex flex-col items-center gap-3">
-            <p className="text-sm text-muted-foreground text-center">
-              {step === "verifyEmail"
-                ? "Enter the 6-digit code sent to your email"
-                : "Enter the 6-digit reset code sent to your email"}
-            </p>
-            <InputOTP
-              maxLength={6}
-              value={otp}
-              onChange={(value) => {
-                setOtp(value);
-                clearFieldError("otp");
-              }}
-              disabled={submitting}
-            >
+        {(step === "verifyPhone" || step === "resetPassword") && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground">أدخل الرمز المكون من 6 أرقام المرسل لهاتفك</p>
+            <InputOTP maxLength={6} value={otp} onChange={(v) => { setOtp(v); clearFieldError("otp"); }} disabled={submitting}>
               <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
+                {[...Array(6)].map((_, i) => <InputOTPSlot key={i} index={i} />)}
               </InputOTPGroup>
             </InputOTP>
-            {fieldErrors.otp && (
-              <p className="text-sm text-destructive text-center" role="alert">
-                {fieldErrors.otp}
-              </p>
-            )}
           </div>
         )}
-
         {step === "resetPassword" && (
-          <div>
-            <input
-              className={`${inputClass} ${fieldErrors.newPassword ? "border-destructive focus:ring-destructive/20" : ""}`}
-              type="password"
-              placeholder="New password"
-              value={newPassword}
-              onChange={(e) => {
-                setNewPassword(e.target.value);
-                clearFieldError("newPassword");
-              }}
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-              disabled={submitting}
-              autoComplete="new-password"
-              aria-invalid={Boolean(fieldErrors.newPassword)}
-              aria-describedby={fieldErrors.newPassword ? "auth-new-password-error" : "auth-new-password-hint"}
-            />
-            {fieldErrors.newPassword ? (
-              <p id="auth-new-password-error" className="mt-1 text-sm text-destructive" role="alert">
-                {fieldErrors.newPassword}
-              </p>
-            ) : (
-              <p id="auth-new-password-hint" className="mt-1 text-xs text-muted-foreground">
-                Minimum {PASSWORD_MIN_LENGTH} characters
-              </p>
-            )}
-          </div>
+          <input
+            className={inputClass}
+            type="password"
+            placeholder="كلمة المرور الجديدة"
+            value={newPassword}
+            onChange={(e) => { setNewPassword(e.target.value); clearFieldError("newPassword"); }}
+            disabled={submitting}
+          />
         )}
-
         <button className={buttonClass} type="submit" disabled={submitting}>
-          {submitting ? (
-            <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mx-auto" />
-          ) : step === "signIn" ? "Sign in"
-            : step === "signUp" ? "Sign up"
-            : step === "verifyEmail" ? "Verify"
-            : step === "forgotPassword" ? "Send reset code"
-            : "Reset password"}
+          {submitting ? "جاري المعالجة..." : step === "signIn" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
         </button>
-
-        {(step === "verifyEmail" || step === "resetPassword") && (
-          <div className="text-center text-sm text-muted-foreground">
-            <button
-              type="button"
-              className={linkClass}
-              onClick={() => void handleResendCode()}
-              disabled={submitting || resendCooldown > 0}
-            >
-              {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : "Resend code"}
-            </button>
-          </div>
-        )}
-
-        <div className="text-center text-sm text-muted-foreground">
-          {(step === "signIn" || step === "signUp") && (
-            <>
-              <span>
-                {step === "signIn" ? "Don't have an account? " : "Already have an account? "}
-              </span>
-              <button
-                type="button"
-                className={linkClass}
-                onClick={() => { resetForm(); setStep(step === "signIn" ? "signUp" : "signIn"); }}
-                disabled={submitting}
-              >
-                {step === "signIn" ? "Sign up instead" : "Sign in instead"}
-              </button>
-            </>
-          )}
-          {step === "signIn" && (
-            <div className="mt-2">
-              <button
-                type="button"
-                className={linkClass}
-                onClick={() => { resetForm(); setStep("forgotPassword"); }}
-                disabled={submitting}
-              >
-                Forgot password?
-              </button>
-            </div>
-          )}
-          {(step === "forgotPassword" || step === "verifyEmail" || step === "resetPassword") && (
-            <button
-              type="button"
-              className={linkClass}
-              onClick={() => { resetForm(); setStep("signIn"); }}
-              disabled={submitting}
-            >
-              Back to sign in
-            </button>
-          )}
+        <div className="text-center text-sm">
+          <button type="button" className="text-primary font-bold" onClick={() => setStep(step === "signIn" ? "signUp" : "signIn")}>
+            {step === "signIn" ? "ليس لديك حساب؟ سجل الآن" : "لديك حساب بالفعل؟ سجل دخولك"}
+          </button>
         </div>
       </form>
-
-      {(step === "signIn" || step === "signUp") && (
-        <>
-          <div className="flex items-center justify-center my-6">
-            <hr className="flex-1 h-px bg-border" />
-            <span className="px-4 text-sm text-muted-foreground">or</span>
-            <hr className="flex-1 h-px bg-border" />
-          </div>
-          <button
-            className="w-full px-6 py-3 bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-semibold rounded-lg border border-input"
-            onClick={() => void signIn("anonymous")}
-            disabled={submitting}
-          >
-            Sign in anonymously
-          </button>
-        </>
-      )}
     </div>
   );
 }
