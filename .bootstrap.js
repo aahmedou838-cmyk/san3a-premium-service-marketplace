@@ -80,7 +80,9 @@ function runSetupCommands() {
     const commands = [
     "bun add @fontsource/cairo@^5.0.22",
     "bun add react-webcam@^7.1.5",
-    "bun add recharts"
+    "bun add recharts",
+    "bun add leaflet react-leaflet",
+    "bun add -D @types/leaflet"
 ];
     
     if (commands.length === 0) {
