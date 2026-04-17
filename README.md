@@ -1,6 +1,6 @@
 # San3a Marketplace
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/aahmedou838-cmyk/san3a-premium-service-marketplace)
 
 ## Overview
 
@@ -94,7 +94,7 @@ This:
 - Builds frontend: `vite build`
 - Deploys Worker + assets via Wrangler.
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/aahmedou838-cmyk/san3a-premium-service-marketplace)
 
 ### Post-Deployment
 
