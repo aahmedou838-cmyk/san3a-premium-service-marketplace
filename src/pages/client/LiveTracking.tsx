@@ -12,7 +12,8 @@ import {
   ArrowRight,
   Navigation,
   MessageCircle,
-  Share2
+  Share2,
+  CheckCircle2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
