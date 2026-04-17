@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
 import {
   Zap,
   Droplets,
@@ -10,7 +12,8 @@ import {
   Sparkles,
   Navigation,
   CheckCircle2,
-  ChevronLeft
+  ChevronLeft,
+  Maximize2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,14 +27,23 @@ const services = [
   { id: "mechanic", name: "ميكانيكا", icon: Car, color: "text-red-500", bg: "bg-red-50" },
   { id: "cleaning", name: "تنظيف", icon: Sparkles, color: "text-emerald-500", bg: "bg-emerald-50" },
 ];
+const NOUAKCHOTT_CENTER: [number, number] = [18.0735, -15.9582];
+const workerIcon = new L.DivIcon({
+  html: `<div class="w-10 h-10 bg-primary rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrench"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>`,
+  className: "",
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+});
 export function ClientDashboard() {
   const navigate = useNavigate();
   const createRequest = useMutation(api.requests.createRequest);
   const activeRequests = useQuery(api.requests.listActiveRequests) ?? [];
+  const nearbyWorkers = useQuery(api.users.listNearbyWorkers) ?? [];
   const acceptContract = useMutation(api.requests.acceptContract);
   const user = useQuery(api.auth.loggedInUser);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [isContractOpen, setIsContractOpen] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const handleServiceClick = async (serviceName: string) => {
     try {
       await createRequest({
@@ -84,6 +96,31 @@ export function ClientDashboard() {
               </Card>
             </motion.button>
           ))}
+        </section>
+        {/* Discovery Map */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold">اكتشف الفنيين القريبين في نواكشوط</h3>
+            <Button variant="ghost" size="sm" onClick={() => setIsMapExpanded(!isMapExpanded)} className="gap-2">
+              <Maximize2 className="w-4 h-4" /> {isMapExpanded ? "تصغير" : "تكبير"}
+            </Button>
+          </div>
+          <div className={cn("relative transition-all duration-500 ease-in-out", isMapExpanded ? "h-[600px]" : "h-[350px]")}>
+            <MapContainer center={NOUAKCHOTT_CENTER} zoom={13} style={{ height: "100%", width: "100%" }}>
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              {nearbyWorkers.map((worker) => worker.location && (
+                <Marker key={worker._id} position={[worker.location.lat, worker.location.lng]} icon={workerIcon}>
+                  <Popup>
+                    <div className="text-right space-y-2">
+                      <p className="font-bold m-0">{worker.name || "فني معتمد"}</p>
+                      <p className="text-xs text-muted-foreground m-0">متواجد الآن</p>
+                      <Button size="sm" className="w-full h-8 text-[10px]" onClick={() => handleServiceClick("خدمة فورية")}>طلب الخدمة</Button>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
         </section>
         {activeRequests.length > 0 && (
           <section className="space-y-6">

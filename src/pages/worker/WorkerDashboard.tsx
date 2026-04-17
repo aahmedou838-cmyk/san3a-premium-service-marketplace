@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
@@ -27,7 +27,38 @@ export function WorkerDashboard() {
   const activeJobs = useQuery(api.requests.listActiveRequests) ?? [];
   const earnings = useQuery(api.requests.getWorkerEarnings) ?? { total: 0, weekly: 0, chartData: [] };
   const acceptContract = useMutation(api.requests.acceptContract);
-  const [isOnline, setIsOnline] = useState(false);
+  const toggleOnline = useMutation(api.users.toggleOnlineStatus);
+  const updateLocation = useMutation(api.users.updateLocation);
+  const [isOnline, setIsOnline] = useState(user?.isOnline ?? false);
+  // Sync internal state with user data
+  useEffect(() => {
+    if (user?.isOnline !== undefined) setIsOnline(user.isOnline);
+  }, [user?.isOnline]);
+  // Real-time location tracking for online workers
+  useEffect(() => {
+    if (!isOnline || user?.kycStatus !== "verified") return;
+    const reportLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          updateLocation({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+        },
+        (err) => console.warn("Location error", err),
+        { enableHighAccuracy: true }
+      );
+    };
+    reportLocation();
+    const interval = setInterval(reportLocation, 30000); // 30s updates
+    return () => clearInterval(interval);
+  }, [isOnline, user?.kycStatus, updateLocation]);
+  const handleToggleOnline = async (val: boolean) => {
+    try {
+      await toggleOnline({ isOnline: val });
+      setIsOnline(val);
+      toast.success(val ? "أنت متصل الآن في نواكشوط" : "أنت غير متصل");
+    } catch (err) {
+      toast.error("فشل في تغيير الحالة");
+    }
+  };
   const handleAcceptJob = async (requestId: any) => {
     try {
       await acceptContract({ requestId });
@@ -83,7 +114,7 @@ export function WorkerDashboard() {
                 <p className="font-bold text-lg">{isOnline ? "أنت متصل الآن" : "أنت غير متصل"}</p>
                 <p className="text-sm text-muted-foreground">فعل وضع الاتصال لاستقبال طلبات نواكشوط</p>
               </div>
-              <Switch checked={isOnline} onCheckedChange={setIsOnline} className="data-[state=checked]:bg-emerald-500" />
+              <Switch checked={isOnline} onCheckedChange={handleToggleOnline} className="data-[state=checked]:bg-emerald-500" />
             </CardContent>
           </Card>
         </div>

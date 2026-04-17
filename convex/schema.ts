@@ -11,9 +11,13 @@ const applicationTables = {
     kycStatus: v.optional(v.union(v.literal("none"), v.literal("pending"), v.literal("verified"), v.literal("rejected"))),
     avatar: v.optional(v.string()),
     trustScore: v.optional(v.number()),
+    location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+    lastSeen: v.optional(v.number()),
+    isOnline: v.optional(v.boolean()),
   })
     .index("by_role", ["role"])
-    .index("by_phone", ["phone"]),
+    .index("by_phone", ["phone"])
+    .index("by_online_status", ["role", "isOnline", "kycStatus"]),
   service_requests: defineTable({
     clientId: v.id("users"),
     workerId: v.optional(v.id("users")),

@@ -8,10 +8,11 @@ export const setUserRole = mutation({
     if (!userId) throw new Error("Unauthorized");
     const existingUser = await ctx.db.get(userId);
     if (existingUser?.role) throw new Error("Role already set");
-    await ctx.db.patch(userId, { 
-      role: args.role, 
+    await ctx.db.patch(userId, {
+      role: args.role,
       kycStatus: "none",
-      trustScore: 0
+      trustScore: 0,
+      isOnline: false,
     });
     await ctx.db.insert("audit_logs", {
       action: "ROLE_SET",
@@ -19,6 +20,37 @@ export const setUserRole = mutation({
       metadata: { role: args.role },
       timestamp: Date.now(),
     });
+  },
+});
+export const updateLocation = mutation({
+  args: { location: v.object({ lat: v.number(), lng: v.number() }) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    await ctx.db.patch(userId, {
+      location: args.location,
+      lastSeen: Date.now(),
+    });
+  },
+});
+export const toggleOnlineStatus = mutation({
+  args: { isOnline: v.boolean() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    await ctx.db.patch(userId, { isOnline: args.isOnline });
+  },
+});
+export const listNearbyWorkers = query({
+  args: {},
+  handler: async (ctx) => {
+    // Light filtering for Nouakchott area (approx bounds)
+    return await ctx.db
+      .query("users")
+      .withIndex("by_online_status", (q) =>
+        q.eq("role", "worker").eq("isOnline", true).eq("kycStatus", "verified")
+      )
+      .collect();
   },
 });
 export const submitKYC = mutation({
