@@ -51,6 +51,22 @@ const applicationTables = {
     timestamp: v.number(),
   }).index("by_requestId", ["requestId"])
     .index("by_workerId", ["workerId"]),
+  notifications: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    message: v.string(),
+    type: v.union(v.literal("info"), v.literal("success"), v.literal("warning")),
+    isRead: v.boolean(),
+    timestamp: v.number(),
+  }).index("by_userId_status", ["userId", "isRead"])
+    .index("by_userId_timestamp", ["userId", "timestamp"]),
+  payouts: defineTable({
+    workerId: v.id("users"),
+    amount: v.number(),
+    method: v.union(v.literal("Bankily"), v.literal("Masrivi"), v.literal("Bank")),
+    status: v.union(v.literal("pending"), v.literal("completed"), v.literal("rejected")),
+    timestamp: v.number(),
+  }).index("by_workerId", ["workerId"]),
   audit_logs: defineTable({
     action: v.string(),
     userId: v.id("users"),

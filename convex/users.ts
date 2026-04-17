@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
 export const setUserRole = mutation({
   args: { role: v.union(v.literal("client"), v.literal("worker")) },
   handler: async (ctx, args) => {
@@ -18,6 +19,24 @@ export const setUserRole = mutation({
       action: "ROLE_SET",
       userId,
       metadata: { role: args.role },
+      timestamp: Date.now(),
+    });
+  },
+});
+export const updateProfile = mutation({
+  args: {
+    name: v.optional(v.string()),
+    avatar: v.optional(v.string()),
+    phone: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    await ctx.db.patch(userId, args);
+    await ctx.db.insert("audit_logs", {
+      action: "PROFILE_UPDATED",
+      userId,
+      metadata: args,
       timestamp: Date.now(),
     });
   },
@@ -44,7 +63,6 @@ export const toggleOnlineStatus = mutation({
 export const listNearbyWorkers = query({
   args: {},
   handler: async (ctx) => {
-    // Light filtering for Nouakchott area (approx bounds)
     return await ctx.db
       .query("users")
       .withIndex("by_online_status", (q) =>
@@ -72,6 +90,38 @@ export const submitKYC = mutation({
       userId,
       metadata: { skills: args.skills },
       timestamp: Date.now(),
+    });
+  },
+});
+export const requestPayout = mutation({
+  args: {
+    amount: v.number(),
+    method: v.union(v.literal("Bankily"), v.literal("Masrivi"), v.literal("Bank")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    const user = await ctx.db.get(userId);
+    if (user?.role !== "worker") throw new Error("Only workers can request payouts");
+    // In a real app, we would verify the balance here
+    await ctx.db.insert("payouts", {
+      workerId: userId,
+      amount: args.amount,
+      method: args.method,
+      status: "pending",
+      timestamp: Date.now(),
+    });
+    await ctx.db.insert("audit_logs", {
+      action: "PAYOUT_REQUESTED",
+      userId,
+      metadata: args,
+      timestamp: Date.now(),
+    });
+    await ctx.runMutation(internal.notifications.createNotification, {
+      userId,
+      title: "تم استلام طلب السحب",
+      message: `طلب سحب ${args.amount} MRU عبر ${args.method} قيد المراجعة.`,
+      type: "info",
     });
   },
 });

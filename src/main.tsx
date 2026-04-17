@@ -20,7 +20,9 @@ import { OrderHistory } from '@/pages/client/OrderHistory'
 import { WorkerDashboard } from '@/pages/worker/WorkerDashboard'
 import { WorkerKYC } from '@/pages/worker/WorkerKYC'
 import { ActiveJob } from '@/pages/worker/ActiveJob'
+import { WalletPage } from '@/pages/worker/WalletPage'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
+import { ProfilePage } from '@/pages/shared/ProfilePage'
 import { RtlLayout } from '@/components/layout/RtlLayout'
 const queryClient = new QueryClient();
 const router = createBrowserRouter([
@@ -39,7 +41,9 @@ const router = createBrowserRouter([
       { path: "/worker", element: <WorkerDashboard /> },
       { path: "/worker/kyc", element: <WorkerKYC /> },
       { path: "/worker/job/:requestId", element: <ActiveJob /> },
+      { path: "/wallet", element: <WalletPage /> },
       { path: "/admin", element: <AdminDashboard /> },
+      { path: "/profile", element: <ProfilePage /> },
     ],
   },
 ]);
