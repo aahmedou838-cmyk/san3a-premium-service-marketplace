@@ -16,6 +16,7 @@ import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
 import { ClientDashboard } from '@/pages/client/ClientDashboard'
 import { LiveTracking } from '@/pages/client/LiveTracking'
+import { OrderHistory } from '@/pages/client/OrderHistory'
 import { WorkerDashboard } from '@/pages/worker/WorkerDashboard'
 import { WorkerKYC } from '@/pages/worker/WorkerKYC'
 import { ActiveJob } from '@/pages/worker/ActiveJob'
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/client", element: <ClientDashboard /> },
       { path: "/client/track/:requestId", element: <LiveTracking /> },
+      { path: "/orders", element: <OrderHistory /> },
       { path: "/worker", element: <WorkerDashboard /> },
       { path: "/worker/kyc", element: <WorkerKYC /> },
       { path: "/worker/job/:requestId", element: <ActiveJob /> },

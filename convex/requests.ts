@@ -18,6 +18,7 @@ export const createRequest = mutation({
       description: args.description,
       address: args.address,
       status: "pending",
+      price: 250, // Default estimate
     });
     await ctx.db.insert("audit_logs", {
       action: "REQUEST_CREATED",
@@ -38,10 +39,10 @@ export const acceptContract = mutation({
     if (user?.role !== "worker") throw new Error("Only workers can accept jobs");
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Request not found");
-    await ctx.db.patch(args.requestId, { 
+    await ctx.db.patch(args.requestId, {
       status: "accepted",
       workerId: userId,
-      workerLocation: { lat: 24.7136, lng: 46.6753 }, // Mock Riyadh start
+      workerLocation: { lat: 24.7136, lng: 46.6753 },
       workerETA: 15
     });
     await ctx.db.insert("audit_logs", {
@@ -53,7 +54,7 @@ export const acceptContract = mutation({
   },
 });
 export const updateRequestStatus = mutation({
-  args: { 
+  args: {
     requestId: v.id("service_requests"),
     status: v.union(v.literal("arrived"), v.literal("in_progress"), v.literal("completed"))
   },
@@ -91,7 +92,6 @@ export const submitReview = mutation({
       comment: args.comment,
       timestamp: Date.now(),
     });
-    // Simple internal score update logic
     const reviews = await ctx.db
       .query("reviews")
       .withIndex("by_workerId", (q) => q.eq("workerId", request.workerId!))
@@ -130,6 +130,76 @@ export const listActiveRequests = query({
         .filter((q) => q.neq(q.field("status"), "completed"))
         .collect();
     }
+  },
+});
+export const listCompletedRequests = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const user = await ctx.db.get(userId);
+    if (!user) return [];
+    if (user.role === "client") {
+      const requests = await ctx.db
+        .query("service_requests")
+        .withIndex("by_client", (q) => q.eq("clientId", userId))
+        .filter((q) => q.eq(q.field("status"), "completed"))
+        .collect();
+      return await Promise.all(requests.map(async r => {
+        const worker = r.workerId ? await ctx.db.get(r.workerId) : null;
+        return { ...r, worker };
+      }));
+    } else {
+      const requests = await ctx.db
+        .query("service_requests")
+        .withIndex("by_worker", (q) => q.eq("workerId", userId))
+        .filter((q) => q.eq(q.field("status"), "completed"))
+        .collect();
+      return await Promise.all(requests.map(async r => {
+        const client = await ctx.db.get(r.clientId);
+        return { ...r, client };
+      }));
+    }
+  },
+});
+export const getWorkerEarnings = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return { total: 0, weekly: 0, data: [] };
+    const requests = await ctx.db
+      .query("service_requests")
+      .withIndex("by_worker", (q) => q.eq("workerId", userId))
+      .filter((q) => q.eq(q.field("status"), "completed"))
+      .collect();
+    const total = requests.reduce((sum, r) => sum + (r.price || 0), 0);
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const weekly = requests
+      .filter(r => (r.actualEndTime || 0) > oneWeekAgo)
+      .reduce((sum, r) => sum + (r.price || 0), 0);
+    const chartData = [
+      { day: "السبت", amount: 0 },
+      { day: "الأحد", amount: 0 },
+      { day: "الاثنين", amount: 0 },
+      { day: "الثلاثاء", amount: 0 },
+      { day: "الأربعاء", amount: 0 },
+      { day: "الخميس", amount: 0 },
+      { day: "الجمعة", amount: 0 },
+    ];
+    return { total, weekly, chartData };
+  },
+});
+export const reportDispute = mutation({
+  args: { requestId: v.id("service_requests"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    await ctx.db.insert("audit_logs", {
+      action: "DISPUTE_REPORTED",
+      userId,
+      metadata: { requestId: args.requestId, reason: args.reason },
+      timestamp: Date.now(),
+    });
   },
 });
 export const getAuditLogs = query({

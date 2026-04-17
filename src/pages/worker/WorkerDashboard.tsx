@@ -12,7 +12,9 @@ import {
   Power,
   ShieldCheck,
   CreditCard,
-  ChevronLeft
+  ChevronLeft,
+  Wallet,
+  ArrowUpRight
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -20,10 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 export function WorkerDashboard() {
   const navigate = useNavigate();
   const user = useQuery(api.auth.loggedInUser);
   const activeJobs = useQuery(api.requests.listActiveRequests) ?? [];
+  const earnings = useQuery(api.requests.getWorkerEarnings) ?? { total: 0, weekly: 0, chartData: [] };
   const acceptContract = useMutation(api.requests.acceptContract);
   const [isOnline, setIsOnline] = useState(false);
   const handleAcceptJob = async (requestId: any) => {
@@ -34,6 +38,9 @@ export function WorkerDashboard() {
     } catch (err) {
       toast.error("فشل في قبول المهمة");
     }
+  };
+  const handleWithdraw = () => {
+    toast.info("خدمة السحب المباشر ستتوفر قريباً في تحديثنا القادم!");
   };
   const currentJob = activeJobs.find(j => j.status === 'accepted' || j.status === 'in_progress' || j.status === 'arrived');
   return (
@@ -75,7 +82,7 @@ export function WorkerDashboard() {
                   <h2 className="text-2xl font-bold">{user?.name || "فني معتمد"}</h2>
                   <Badge className="bg-green-100 text-green-700">موثق</Badge>
                 </div>
-                <p className="text-muted-foreground">رقم الهاتف: {user?.phone}</p>
+                <p className="text-muted-foreground">رقم الهاتف: {user?.phone || "غير مسجل"}</p>
                 <div className="flex items-center gap-1 text-amber-500">
                   <Star className="w-4 h-4 fill-current" />
                   <span className="font-bold">{user?.trustScore?.toFixed(1) || "5.0"}</span>
@@ -96,28 +103,42 @@ export function WorkerDashboard() {
             </CardContent>
           </Card>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="أرباح اليوم" value="0 ر.س" icon={CreditCard} color="text-emerald-500" />
-          <StatCard title="طلبات مكتملة" value="0" icon={CheckCircle} color="text-blue-500" />
-          <StatCard title="ساعات العمل" value="0" icon={Clock} color="text-purple-500" />
-          <StatCard title="معدل القبول" value="100%" icon={TrendingUp} color="text-amber-500" />
-        </div>
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold">طلبات متاحة قريبة</h3>
-          <AnimatePresence>
-            {isOnline ? (
-              <div className="grid md:grid-cols-2 gap-4">
-                 <JobCard onAccept={() => handleAcceptJob("mock-id")} />
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+            <StatCard title="إجمالي الأرباح" value={`${earnings.total} ر.س`} icon={Wallet} color="text-emerald-500" />
+            <StatCard title="أرباح الأسبوع" value={`${earnings.weekly} ر.س`} icon={TrendingUp} color="text-blue-500" />
+            <Card className="col-span-2 rounded-3xl border-none shadow-soft p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="font-bold text-lg">تحليل الأرباح الأسبوعي</h4>
+                <Button variant="ghost" size="sm" onClick={handleWithdraw} className="text-primary hover:text-primary/80 font-bold">
+                  سحب الرصيد <ArrowUpRight className="w-4 h-4 mr-1" />
+                </Button>
               </div>
-            ) : (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-accent/30 rounded-3xl p-12 text-center space-y-2 border-2 border-dashed">
-                <Power className="w-12 h-12 text-muted-foreground mx-auto opacity-50" />
-                <h4 className="text-lg font-bold text-right">ابدأ العمل لتلقي الطلبات</h4>
-                <p className="text-muted-foreground text-right">بمجرد تفعيل وضع الاتصال، ستظهر الطلبات القريبة منك هنا.</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </section>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={earnings.chartData}>
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold">الطلبات القريبة</h3>
+            <AnimatePresence>
+              {isOnline ? (
+                <JobCard onAccept={() => handleAcceptJob("mock-id")} />
+              ) : (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-accent/10 rounded-3xl p-8 text-center space-y-4 border-2 border-dashed border-primary/20">
+                  <Power className="w-12 h-12 text-muted-foreground mx-auto opacity-50" />
+                  <p className="text-sm text-muted-foreground">فعل وضع الاتصال لتبدأ في جني الأرباح واستقبال الطلبات في منطقتك.</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -149,16 +170,12 @@ function JobCard({ onAccept }: any) {
             </div>
             <div className="text-left">
               <span className="text-xl font-black text-primary">150 ر.س</span>
-              <p className="text-xs text-muted-foreground">تقديري</p>
             </div>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> حي النرجس (2.4 كم)</span>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={onAccept} className="flex-1 bg-primary rounded-xl">قبول الطلب</Button>
-            <Button variant="ghost" className="flex-1 rounded-xl">تجاهل</Button>
-          </div>
+          <Button onClick={onAccept} className="w-full bg-primary text-white rounded-xl">قبول الطلب</Button>
         </CardContent>
       </Card>
     </motion.div>

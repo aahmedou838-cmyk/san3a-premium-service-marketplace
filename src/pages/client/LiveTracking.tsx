@@ -1,33 +1,51 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { motion } from "framer-motion";
-import { 
-  MapPin, 
-  Phone, 
-  ShieldCheck, 
-  Clock, 
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  MapPin,
+  Phone,
+  ShieldCheck,
+  Clock,
   AlertCircle,
   ArrowRight,
   Navigation,
-  MessageCircle
+  MessageCircle,
+  Share2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Id } from "@convex/_generated/dataModel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ReviewModal } from "@/components/ReviewModal";
 export function LiveTracking() {
   const { requestId } = useParams<{ requestId: string }>();
+  const navigate = useNavigate();
   const job = useQuery(api.requests.getJobDetails, { requestId: requestId as Id<"service_requests"> });
   const [timer, setTimer] = useState(0);
+  const [showReview, setShowReview] = useState(false);
   useEffect(() => {
     let interval: any;
     if (job?.status === "in_progress" && job.actualStartTime) {
       interval = setInterval(() => {
         setTimer(Math.floor((Date.now() - job.actualStartTime!) / 1000));
       }, 1000);
+    }
+    if (job?.status === "completed") {
+      setShowReview(true);
     }
     return () => clearInterval(interval);
   }, [job]);
@@ -42,25 +60,26 @@ export function LiveTracking() {
       <div className="py-8 md:py-12 space-y-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/client" className="p-2 hover:bg-accent rounded-full">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/client")} className="rounded-full">
               <ArrowRight className="w-6 h-6" />
-            </Link>
+            </Button>
             <h1 className="text-2xl font-black">تتبع الطلب</h1>
           </div>
           <Badge className={cn(
             "rounded-full px-4 py-1",
-            job.status === 'accepted' ? "bg-blue-100 text-blue-700" : 
-            job.status === 'in_progress' ? "bg-green-100 text-green-700" : "bg-slate-100"
+            job.status === 'accepted' ? "bg-blue-100 text-blue-700" :
+            job.status === 'in_progress' ? "bg-green-100 text-green-700" : 
+            job.status === 'completed' ? "bg-emerald-100 text-emerald-700" : "bg-slate-100"
           )}>
-            {job.status === 'accepted' ? 'الفني في الطريق' : 
+            {job.status === 'accepted' ? 'الفني في الطريق' :
              job.status === 'arrived' ? 'وصل الفني' :
-             job.status === 'in_progress' ? 'جاري العمل' : 'بانتظار الموافقة'}
+             job.status === 'in_progress' ? 'جاري العمل' : 
+             job.status === 'completed' ? 'تم الإكمال' : 'بانتظار الموافقة'}
           </Badge>
         </header>
-        {/* Live Map Placeholder */}
         <div className="relative aspect-video rounded-3xl bg-slate-100 border-2 overflow-hidden shadow-inner flex items-center justify-center">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-200/50 via-transparent to-transparent opacity-50" />
-          <motion.div 
+          <motion.div
             animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.2, 0.5] }}
             transition={{ duration: 2, repeat: Infinity }}
             className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center"
@@ -76,8 +95,10 @@ export function LiveTracking() {
                 </div>
              </Card>
           </div>
+          <Button variant="secondary" size="sm" className="absolute top-4 left-4 rounded-xl gap-2 shadow-lg">
+            <Share2 className="w-4 h-4" /> مشاركة الموقع
+          </Button>
         </div>
-        {/* Worker Info Card */}
         <div className="grid md:grid-cols-3 gap-6">
           <Card className="md:col-span-2 rounded-3xl border-none shadow-soft overflow-hidden">
             <CardContent className="p-8 flex items-center gap-6">
@@ -106,6 +127,12 @@ export function LiveTracking() {
                 <p className="text-sm opacity-80 mb-2">مدة العمل الحالية</p>
                 <p className="text-4xl font-black tabular-nums">{formatTime(timer)}</p>
               </>
+            ) : job.status === "completed" ? (
+              <div className="text-center space-y-2">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                <p className="font-bold">تم إنجاز المهمة</p>
+                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowReview(true)}>إضافة تقييم</Button>
+              </div>
             ) : (
               <>
                 <AlertCircle className="w-8 h-8 text-amber-500 mb-2" />
@@ -114,17 +141,37 @@ export function LiveTracking() {
             )}
           </Card>
         </div>
-        {/* SOS Button Section */}
         <section className="bg-destructive/5 rounded-3xl p-8 border-2 border-dashed border-destructive/20 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center md:text-right">
             <h4 className="text-xl font-bold text-destructive">زر الطوارئ SOS</h4>
             <p className="text-muted-foreground text-sm">استخدم هذا الزر فقط في حالات الطوارئ القصوى أو الخطر.</p>
           </div>
-          <Button variant="destructive" size="lg" className="rounded-full px-12 animate-glow shadow-primary">
-            تنبيه الطوارئ
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="lg" className="rounded-full px-12 animate-glow shadow-primary">
+                تنبيه الطوارئ
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent dir="rtl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>هل أنت في خطر؟</AlertDialogTitle>
+                <AlertDialogDescription>بمجرد التفعيل، سيتم إرسال موقعك الحالي فوراً لفرق الاستجابة السريعة لدينا وللجهات المعنية.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex-row-reverse gap-2">
+                <AlertDialogAction className="bg-destructive text-white">نعم، أحتاج للمساعدة</AlertDialogAction>
+                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </section>
       </div>
+      {job && (
+        <ReviewModal 
+          requestId={job._id} 
+          isOpen={showReview} 
+          onClose={() => { setShowReview(false); navigate("/client"); }} 
+        />
+      )}
     </div>
   );
 }

@@ -3,20 +3,22 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { motion } from "framer-motion";
-import { 
-  MapPin, 
-  Clock, 
-  CheckCircle2, 
-  Navigation, 
+import {
+  MapPin,
+  Clock,
+  CheckCircle2,
+  Navigation,
   ExternalLink,
   Phone,
   MessageSquare,
-  AlertTriangle
+  AlertTriangle,
+  ArrowRight
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Id } from "@convex/_generated/dataModel";
+import { cn } from "@/lib/utils";
 export function ActiveJob() {
   const { requestId } = useParams<{ requestId: string }>();
   const navigate = useNavigate();
@@ -41,7 +43,9 @@ export function ActiveJob() {
     try {
       await updateStatus({ requestId: job._id, status: nextStatus });
       toast.success(nextStatus === "completed" ? "تم إتمام المهمة بنجاح!" : "تم تحديث الحالة");
-      if (nextStatus === "completed") navigate("/worker");
+      if (nextStatus === "completed") {
+        setTimeout(() => navigate("/worker"), 1500);
+      }
     } catch (err) {
       toast.error("فشل في تحديث الحالة");
     }
@@ -54,9 +58,14 @@ export function ActiveJob() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="py-8 md:py-12 space-y-8">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-black">مهمة نشطة: {job.serviceType}</h1>
-          <p className="text-muted-foreground flex items-center gap-2"><MapPin className="w-4 h-4" /> {job.address}</p>
+        <header className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/worker")} className="rounded-full">
+            <ArrowRight className="w-6 h-6" />
+          </Button>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black">مهمة نشطة: {job.serviceType}</h1>
+            <p className="text-muted-foreground flex items-center gap-2"><MapPin className="w-4 h-4" /> {job.address}</p>
+          </div>
         </header>
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-6">
@@ -64,7 +73,9 @@ export function ActiveJob() {
               <CardContent className="p-8 space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-xl font-bold">ع</div>
+                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-xl font-bold">
+                      {job.client?.name?.[0] || 'ع'}
+                    </div>
                     <div>
                       <p className="text-xs text-muted-foreground">العميل</p>
                       <p className="font-bold">{job.client?.name || "عميل صنعة"}</p>
@@ -93,18 +104,18 @@ export function ActiveJob() {
                <Card className="rounded-3xl border-none shadow-soft p-6 flex flex-col items-center justify-center gap-2">
                   <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                   <p className="text-xs text-muted-foreground">المبلغ المتوقع</p>
-                  <p className="text-2xl font-black">250 ر.س</p>
+                  <p className="text-2xl font-black">{job.price || 250} ر.س</p>
                </Card>
             </div>
           </div>
           <div className="space-y-6">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={handleStatusUpdate}
               className={cn(
                 "w-full h-24 rounded-[2rem] text-xl font-black shadow-lg transition-all",
-                job.status === "accepted" ? "bg-primary" :
-                job.status === "arrived" ? "bg-emerald-600" : "bg-destructive"
+                job.status === "accepted" ? "bg-primary text-white" :
+                job.status === "arrived" ? "bg-emerald-600 text-white" : "bg-destructive text-white"
               )}
             >
               {job.status === "accepted" ? "وصلت للموقع" :
