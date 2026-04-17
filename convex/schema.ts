@@ -9,6 +9,8 @@ const applicationTables = {
     role: v.optional(v.union(v.literal("client"), v.literal("worker"), v.literal("admin"))),
     isFrozen: v.optional(v.boolean()),
     kycStatus: v.optional(v.union(v.literal("none"), v.literal("pending"), v.literal("verified"), v.literal("rejected"))),
+    kycRejectedReason: v.optional(v.string()),
+    idFileId: v.optional(v.id("files")),
     avatar: v.optional(v.string()),
     trustScore: v.optional(v.number()),
     location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
@@ -17,6 +19,7 @@ const applicationTables = {
   })
     .index("by_role", ["role"])
     .index("by_phone", ["phone"])
+    .index("by_kycStatus", ["kycStatus"])
     .index("by_online_status", ["role", "isOnline", "kycStatus"]),
   service_requests: defineTable({
     clientId: v.id("users"),

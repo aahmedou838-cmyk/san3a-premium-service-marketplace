@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Phone,
   ShieldCheck,
@@ -51,8 +51,6 @@ function RecenterMap({ workerLoc, clientLoc }: { workerLoc?: any, clientLoc?: an
     if (workerLoc && clientLoc) {
       const bounds = L.latLngBounds([workerLoc.lat, workerLoc.lng], [clientLoc.lat, clientLoc.lng]);
       map.fitBounds(bounds, { padding: [50, 50] });
-    } else if (workerLoc) {
-      map.setView([workerLoc.lat, workerLoc.lng], 15);
     }
   }, [workerLoc, clientLoc, map]);
   return null;
@@ -70,11 +68,12 @@ export function LiveTracking() {
         setTimer(Math.floor((Date.now() - job.actualStartTime!) / 1000));
       }, 1000);
     }
+    // Auto-trigger review when job is completed
     if (job?.status === "completed") {
       setShowReview(true);
     }
     return () => clearInterval(interval);
-  }, [job]);
+  }, [job?.status, job?.actualStartTime]);
   if (!job) return <div className="p-12 text-center">جاري تحميل بيانات التتبع...</div>;
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -83,29 +82,33 @@ export function LiveTracking() {
   };
   const clientLocation = job.location || { lat: 18.0735, lng: -15.9582 };
   const workerLoc = job.worker?.location;
+  const openWhatsApp = () => {
+    if (!job.worker?.phone) return;
+    const msg = encodeURIComponent(`أهلاً ${job.worker.name}، أنا أتواصل معك بخصوص طلب ${job.serviceType} عبر تطبيق صنعة.`);
+    window.open(`https://wa.me/${job.worker.phone}?text=${msg}`, "_blank");
+  };
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" dir="rtl">
       <div className="py-8 md:py-12 space-y-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate("/client")} className="rounded-full">
               <ArrowRight className="w-6 h-6" />
             </Button>
-            <h1 className="text-2xl font-black">تتبع الطلب</h1>
+            <h1 className="text-2xl font-black">تتبع رحلة الفني</h1>
           </div>
           <Badge className={cn(
             "rounded-full px-4 py-1",
-            job.status === 'accepted' ? "bg-blue-100 text-blue-700" :
+            job.status === 'accepted' ? "bg-blue-100 text-blue-700 animate-pulse" :
             job.status === 'in_progress' ? "bg-green-100 text-green-700" :
             job.status === 'completed' ? "bg-emerald-100 text-emerald-700" : "bg-slate-100"
           )}>
             {job.status === 'accepted' ? 'الفني في الطريق' :
-             job.status === 'arrived' ? 'وصل الفني' :
-             job.status === 'in_progress' ? 'جاري العمل' :
-             job.status === 'completed' ? 'تم الإكمال' : 'بانتظار الموافقة'}
+             job.status === 'arrived' ? 'وصل الفني للمكان' :
+             job.status === 'in_progress' ? 'جاري العمل الآن' :
+             job.status === 'completed' ? 'تم الإكمال بنجاح' : 'بانتظار الموافقة'}
           </Badge>
         </header>
-        {/* Real-time Interactive Map */}
         <div className="relative aspect-video rounded-3xl overflow-hidden shadow-inner border-2">
           <MapContainer center={[clientLocation.lat, clientLocation.lng]} zoom={15} style={{ height: "100%", width: "100%" }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -127,9 +130,6 @@ export function LiveTracking() {
                 </div>
              </Card>
           </div>
-          <Button variant="secondary" size="sm" className="absolute top-4 left-4 z-10 rounded-xl gap-2 shadow-lg">
-            <Share2 className="w-4 h-4" /> مشاركة الموقع
-          </Button>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           <Card className="md:col-span-2 rounded-3xl border-none shadow-soft overflow-hidden">
@@ -137,15 +137,19 @@ export function LiveTracking() {
               <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
                 {job.worker?.name?.[0] || 'ف'}
               </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
+              <div className="flex-1 space-y-1 text-right">
+                <div className="flex items-center gap-2 justify-end">
+                  <Badge className="bg-emerald-100 text-emerald-700">موثق <ShieldCheck className="w-3 h-3 mr-1" /></Badge>
                   <h3 className="text-xl font-bold">{job.worker?.name || "فني صنعة"}</h3>
-                  <Badge className="bg-green-100 text-green-700">موثق <ShieldCheck className="w-3 h-3 mr-1" /></Badge>
                 </div>
                 <p className="text-muted-foreground">{job.serviceType}</p>
-                <div className="flex gap-4 pt-2">
-                  <Button size="sm" variant="outline" className="rounded-xl gap-2"><Phone className="w-4 h-4" /> اتصال</Button>
-                  <Button size="sm" variant="outline" className="rounded-xl gap-2"><MessageCircle className="w-4 h-4" /> مراسلة</Button>
+                <div className="flex gap-4 pt-4 justify-end">
+                  <Button onClick={openWhatsApp} className="rounded-xl gap-2 bg-emerald-600 hover:bg-emerald-700 font-bold">
+                    تواصل عبر واتساب <MessageCircle className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" className="rounded-xl gap-2 h-11">
+                    اتصال هاتفي <Phone className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -160,15 +164,15 @@ export function LiveTracking() {
                 <p className="text-4xl font-black tabular-nums">{formatTime(timer)}</p>
               </>
             ) : job.status === "completed" ? (
-              <div className="text-center space-y-2">
-                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-                <p className="font-bold">تم إنجاز المهمة</p>
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowReview(true)}>إضافة تقييم</Button>
+              <div className="text-center space-y-3">
+                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+                <p className="font-bold text-lg">تم إنجاز المهمة</p>
+                <Button variant="default" className="rounded-xl px-8" onClick={() => setShowReview(true)}>إضافة تقييم</Button>
               </div>
             ) : (
               <>
                 <AlertCircle className="w-8 h-8 text-amber-500 mb-2" />
-                <p className="text-center font-bold">بانتظار وصول الفني لبدء العمل</p>
+                <p className="text-center font-bold">الفني في طريقه إليك الآن</p>
               </>
             )}
           </Card>
@@ -176,34 +180,32 @@ export function LiveTracking() {
         <section className="bg-destructive/5 rounded-3xl p-8 border-2 border-dashed border-destructive/20 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center md:text-right">
             <h4 className="text-xl font-bold text-destructive">زر الطوارئ SOS</h4>
-            <p className="text-muted-foreground text-sm">استخدم هذا الزر فقط في حالات الطوارئ القصوى أو الخطر.</p>
+            <p className="text-muted-foreground text-sm">استخدم هذا الزر فقط في حالات الطوارئ أو الخطر.</p>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="lg" className="rounded-full px-12 animate-glow shadow-primary">
+              <Button variant="destructive" size="lg" className="rounded-full px-12 animate-glow shadow-primary font-bold">
                 تنبيه الطوارئ
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent dir="rtl">
-              <AlertDialogHeader>
+              <AlertDialogHeader className="text-right">
                 <AlertDialogTitle>هل أنت في خطر؟</AlertDialogTitle>
-                <AlertDialogDescription>بمجرد التفعيل، سيتم إرسال موقعك الحالي فوراً لفرق الاستجابة السريعة لدينا وللجهات المعنية.</AlertDialogDescription>
+                <AlertDialogDescription>بمجرد التفعيل، سيتم إرسال موقعك الحالي فوراً لفرق الاستجابة السريعة لدينا وللجهات المعنية في نواكشوط.</AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex-row-reverse gap-2">
-                <AlertDialogAction className="bg-destructive text-white">نعم، أحتاج للمساعدة</AlertDialogAction>
-                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+              <AlertDialogFooter className="flex-row gap-2 mt-4">
+                <AlertDialogAction className="bg-destructive text-white rounded-xl flex-1">نعم، أحتاج للمساعدة</AlertDialogAction>
+                <AlertDialogCancel className="rounded-xl flex-1">إلغاء</AlertDialogCancel>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
         </section>
       </div>
-      {job && (
-        <ReviewModal
-          requestId={job._id}
-          isOpen={showReview}
-          onClose={() => { setShowReview(false); navigate("/client"); }}
-        />
-      )}
+      <ReviewModal
+        requestId={job._id}
+        isOpen={showReview}
+        onClose={() => { setShowReview(false); navigate("/client"); }}
+      />
     </div>
   );
 }

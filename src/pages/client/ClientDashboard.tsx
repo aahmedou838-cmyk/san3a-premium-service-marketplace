@@ -13,7 +13,9 @@ import {
   Navigation,
   CheckCircle2,
   ChevronLeft,
-  Maximize2
+  Maximize2,
+  Star,
+  MessageCircle
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,42 +52,25 @@ export function ClientDashboard() {
         serviceType: serviceName,
         address: "نواكشوط، تفرغ زينة",
       });
-      toast.success("تم إرسال طلبك! جاري البحث عن فني في نواكشوط...");
+      toast.success("تم إرسال طلبك! جاري البحث عن فني...");
     } catch (err: any) {
       toast.error(err.message || "فشل في إنشاء الطلب");
     }
   };
-  const openContract = (request: any) => {
-    setSelectedRequest(request);
-    setIsContractOpen(true);
-  };
-  const onAcceptContract = async () => {
-    if (!selectedRequest) return;
-    try {
-      await acceptContract({ requestId: selectedRequest._id });
-      setIsContractOpen(false);
-      toast.success("تم توقيع العقد! الفني في طريقه إليك.");
-      navigate(`/client/track/${selectedRequest._id}`);
-    } catch (err) {
-      toast.error("فشل في قبول العقد");
-    }
+  const openWhatsApp = (phone: string, name: string) => {
+    const msg = encodeURIComponent(`مرحباً ${name}، أرغب في الاستفسار عن خدمة عبر تطبيق صنعة.`);
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
   };
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" dir="rtl">
       <div className="py-8 md:py-12 space-y-12">
         <section className="space-y-2 text-right">
-          <h2 className="text-3xl font-black tracking-tight">ما هي الخدمة التي تحتاجها؟</h2>
-          <p className="text-muted-foreground">اختر الخدمة وسنقوم بربطك بأفضل الفنيين في موريتانيا.</p>
+          <h2 className="text-3xl font-black tracking-tight">اطلب خدمتك الآن</h2>
+          <p className="text-muted-foreground">أفضل الفنيين الموثقين في نواكشوط بانتظار خدمتك.</p>
         </section>
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {services.map((service) => (
-            <motion.button
-              key={service.id}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleServiceClick(service.name)}
-              className="group text-right"
-            >
+            <motion.button key={service.id} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleServiceClick(service.name)} className="group text-right">
               <Card className="border-none shadow-soft hover:shadow-xl transition-all h-full bg-card rounded-3xl overflow-hidden">
                 <CardContent className="p-8 flex flex-col items-center gap-4">
                   <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6", service.bg)}>
@@ -97,24 +82,33 @@ export function ClientDashboard() {
             </motion.button>
           ))}
         </section>
-        {/* Discovery Map */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold">اكتشف الفنيين القريبين في نواكشوط</h3>
+            <h3 className="text-xl font-bold">الفنيين المتواجدين الآن</h3>
             <Button variant="ghost" size="sm" onClick={() => setIsMapExpanded(!isMapExpanded)} className="gap-2">
-              <Maximize2 className="w-4 h-4" /> {isMapExpanded ? "تصغير" : "تكبير"}
+              <Maximize2 className="w-4 h-4" /> {isMapExpanded ? "تصغير الخريطة" : "تكبير الخريطة"}
             </Button>
           </div>
-          <div className={cn("relative transition-all duration-500 ease-in-out", isMapExpanded ? "h-[600px]" : "h-[350px]")}>
+          <div className={cn("relative transition-all duration-500 ease-in-out z-10", isMapExpanded ? "h-[600px]" : "h-[350px]")}>
             <MapContainer center={NOUAKCHOTT_CENTER} zoom={13} style={{ height: "100%", width: "100%" }}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {nearbyWorkers.map((worker) => worker.location && (
                 <Marker key={worker._id} position={[worker.location.lat, worker.location.lng]} icon={workerIcon}>
                   <Popup>
-                    <div className="text-right space-y-2">
-                      <p className="font-bold m-0">{worker.name || "فني معتمد"}</p>
-                      <p className="text-xs text-muted-foreground m-0">متواجد الآن</p>
-                      <Button size="sm" className="w-full h-8 text-[10px]" onClick={() => handleServiceClick("خدمة فورية")}>طلب الخدمة</Button>
+                    <div className="text-right space-y-2 p-2 min-w-[150px]">
+                      <div className="flex items-center justify-between gap-4">
+                         <p className="font-bold m-0">{worker.name || "فني موثق"}</p>
+                         <div className="flex items-center gap-1 text-amber-500 text-xs font-bold">
+                            <Star className="w-3 h-3 fill-current" /> {worker.trustScore?.toFixed(1) || "5.0"}
+                         </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground m-0">متواجد الآن في نواكشوط</p>
+                      <div className="flex gap-2 pt-2">
+                        <Button size="sm" className="flex-1 h-8 text-[10px]" onClick={() => handleServiceClick("خدمة فورية")}>طلب الآن</Button>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => openWhatsApp(worker.phone!, worker.name!)}>
+                          <MessageCircle className="w-4 h-4 text-emerald-600" />
+                        </Button>
+                      </div>
                     </div>
                   </Popup>
                 </Marker>
@@ -125,7 +119,7 @@ export function ClientDashboard() {
         {activeRequests.length > 0 && (
           <section className="space-y-6">
             <h3 className="text-xl font-bold flex items-center gap-2 text-right">
-              <Navigation className="w-5 h-5 text-primary" /> الطلبات النشطة
+              <Navigation className="w-5 h-5 text-primary" /> طلباتك الحالية
             </h3>
             <div className="grid gap-4">
               {activeRequests.map((req) => (
@@ -137,7 +131,7 @@ export function ClientDashboard() {
                       </div>
                       <div className="flex-1">
                         <h4 className="font-bold text-lg">{req.serviceType}</h4>
-                        <p className="text-sm text-muted-foreground">الحالة: {req.status === 'pending' ? 'بانتظار الموافقة' : 'جاري التنفيذ'}</p>
+                        <p className="text-sm text-muted-foreground">حالة الطلب: {req.status === 'pending' ? 'بانتظار قبول العقد' : 'جاري العمل'}</p>
                       </div>
                       <div className="text-left">
                         <p className="font-black text-primary text-xl">250 MRU</p>
@@ -145,9 +139,9 @@ export function ClientDashboard() {
                     </div>
                     <div className="flex gap-2 w-full md:w-auto">
                       {req.status === 'pending' ? (
-                        <Button onClick={() => openContract(req)} className="flex-1 rounded-xl px-8">عرض العقد</Button>
+                        <Button onClick={() => { setSelectedRequest(req); setIsContractOpen(true); }} className="flex-1 rounded-xl px-8 font-bold">عرض العقد الرقمي</Button>
                       ) : (
-                        <Button onClick={() => navigate(`/client/track/${req._id}`)} variant="secondary" className="flex-1 rounded-xl gap-2">تتبع الفني <ChevronLeft className="w-4 h-4" /></Button>
+                        <Button onClick={() => navigate(`/client/track/${req._id}`)} variant="secondary" className="flex-1 rounded-xl gap-2 font-bold">تتبع الفني <ChevronLeft className="w-4 h-4" /></Button>
                       )}
                     </div>
                   </CardContent>
@@ -166,7 +160,12 @@ export function ClientDashboard() {
               workerName="فني صنعة معتمد"
               clientName={user?.name || "عميل صنعة"}
               estimatedPrice={250}
-              onAccept={onAcceptContract}
+              onAccept={async () => {
+                await acceptContract({ requestId: selectedRequest._id });
+                setIsContractOpen(false);
+                toast.success("تم توقيع العقد بنجاح!");
+                navigate(`/client/track/${selectedRequest._id}`);
+              }}
               onCancel={() => setIsContractOpen(false)}
             />
           )}

@@ -76,6 +76,7 @@ export const submitKYC = mutation({
     name: v.string(),
     phone: v.string(),
     skills: v.array(v.string()),
+    idFileId: v.optional(v.id("files")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -84,11 +85,71 @@ export const submitKYC = mutation({
       name: args.name,
       phone: args.phone,
       kycStatus: "pending",
+      idFileId: args.idFileId,
     });
     await ctx.db.insert("audit_logs", {
       action: "KYC_SUBMISSION",
       userId,
-      metadata: { skills: args.skills },
+      metadata: { skills: args.skills, idFileId: args.idFileId },
+      timestamp: Date.now(),
+    });
+  },
+});
+export const listPendingKYC = query({
+  args: {},
+  handler: async (ctx) => {
+    const adminId = await getAuthUserId(ctx);
+    if (!adminId) throw new Error("Unauthorized");
+    const adminUser = await ctx.db.get(adminId);
+    if (adminUser?.role !== "admin") return [];
+    const pendingUsers = await ctx.db
+      .query("users")
+      .withIndex("by_kycStatus", (q) => q.eq("kycStatus", "pending"))
+      .collect();
+    return await Promise.all(
+      pendingUsers.map(async (u) => {
+        let fileUrl = null;
+        if (u.idFileId) {
+          const file = await ctx.db.get(u.idFileId);
+          if (file) {
+            fileUrl = await ctx.storage.getUrl(file.storageId);
+          }
+        }
+        return { ...u, fileUrl };
+      })
+    );
+  },
+});
+export const verifyWorker = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const adminId = await getAuthUserId(ctx);
+    const adminUser = adminId ? await ctx.db.get(adminId) : null;
+    if (adminUser?.role !== "admin") throw new Error("Forbidden");
+    await ctx.db.patch(args.userId, { kycStatus: "verified" });
+    await ctx.db.insert("notifications", {
+      userId: args.userId,
+      title: "تم توثيق حسابك",
+      message: "تهانينا! تم التحقق من هويتك ويمكنك الآن استقبال طلبات العمل.",
+      type: "success",
+      isRead: false,
+      timestamp: Date.now(),
+    });
+  },
+});
+export const rejectWorker = mutation({
+  args: { userId: v.id("users"), reason: v.string() },
+  handler: async (ctx, args) => {
+    const adminId = await getAuthUserId(ctx);
+    const adminUser = adminId ? await ctx.db.get(adminId) : null;
+    if (adminUser?.role !== "admin") throw new Error("Forbidden");
+    await ctx.db.patch(args.userId, { kycStatus: "rejected", kycRejectedReason: args.reason });
+    await ctx.db.insert("notifications", {
+      userId: args.userId,
+      title: "تم رفض التوثيق",
+      message: `للأسف تم رفض طلب التوثيق. السبب: ${args.reason}`,
+      type: "warning",
+      isRead: false,
       timestamp: Date.now(),
     });
   },
@@ -103,7 +164,6 @@ export const requestPayout = mutation({
     if (!userId) throw new Error("Unauthorized");
     const user = await ctx.db.get(userId);
     if (user?.role !== "worker") throw new Error("Only workers can request payouts");
-    // In a real app, we would verify the balance here
     await ctx.db.insert("payouts", {
       workerId: userId,
       amount: args.amount,
@@ -158,7 +218,9 @@ export const updateTrustScore = internalMutation({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) return;
-    const newScore = (user.trustScore ?? 0) + args.increment;
+    const currentScore = user.trustScore ?? 0;
+    // Basic moving average simulation or cumulative
+    const newScore = currentScore === 0 ? args.increment : (currentScore + args.increment) / 2;
     await ctx.db.patch(args.userId, { trustScore: newScore });
   },
 });
