@@ -1,3 +1,4 @@
+
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -117,8 +118,7 @@ export const listPendingKYC = query({
         }
         return { ...u, fileUrl };
       })
-    );
-  },
+    );  },
 });
 export const verifyWorker = mutation({
   args: { userId: v.id("users") },
