@@ -16,16 +16,26 @@ const applicationTables = {
     location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
     lastSeen: v.optional(v.number()),
     isOnline: v.optional(v.boolean()),
+    // === Digital Trust Profile fields ===
+    bio: v.optional(v.string()),
+    skills: v.optional(v.array(v.string())),
+    experienceYears: v.optional(v.number()),
+    city: v.optional(v.string()),
+    portfolioFileIds: v.optional(v.array(v.id("files"))),
+    trustHandle: v.optional(v.string()), // short public slug (e.g. "ahmed-plumber")
+    profileViews: v.optional(v.number()),
   })
     .index("by_role", ["role"])
     .index("by_phone", ["phone"])
     .index("by_kycStatus", ["kycStatus"])
-    .index("by_online_status", ["role", "isOnline", "kycStatus"]),
+    .index("by_online_status", ["role", "isOnline", "kycStatus"])
+    .index("by_trustHandle", ["trustHandle"]),
   service_requests: defineTable({
     clientId: v.id("users"),
     workerId: v.optional(v.id("users")),
     serviceType: v.string(),
     description: v.optional(v.string()),
+    voiceNoteFileId: v.optional(v.id("files")),
     status: v.union(
       v.literal("pending"),
       v.literal("accepted"),
@@ -35,6 +45,7 @@ const applicationTables = {
       v.literal("cancelled")
     ),
     price: v.optional(v.number()),
+    priceRange: v.optional(v.object({ min: v.number(), max: v.number() })),
     address: v.optional(v.string()),
     location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
     workerLocation: v.optional(v.object({ lat: v.number(), lng: v.number() })),
@@ -42,6 +53,7 @@ const applicationTables = {
     actualStartTime: v.optional(v.number()),
     actualEndTime: v.optional(v.number()),
     contractUrl: v.optional(v.string()),
+    hasDispute: v.optional(v.boolean()),
   }).index("by_client", ["clientId"])
     .index("by_worker", ["workerId"])
     .index("by_status", ["status"]),

@@ -12,7 +12,11 @@ import type * as auth from "../auth.js";
 import type * as email_AndromoOTP from "../email/AndromoOTP.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
+import type * as notifications from "../notifications.js";
+import type * as requests from "../requests.js";
 import type * as router from "../router.js";
+import type * as trust from "../trust.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -25,7 +29,11 @@ declare const fullApi: ApiFromModules<{
   "email/AndromoOTP": typeof email_AndromoOTP;
   files: typeof files;
   http: typeof http;
+  notifications: typeof notifications;
+  requests: typeof requests;
   router: typeof router;
+  trust: typeof trust;
+  users: typeof users;
 }>;
 
 /**

@@ -20,9 +20,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { QRCodeSVG } from "qrcode.react";
+import { Share2, Copy, ExternalLink, UserCog, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { getCurrentPosition, shareContent, hapticTap } from "@/lib/native";
 export function WorkerDashboard() {
   const navigate = useNavigate();
   const user = useQuery(api.auth.loggedInUser);
@@ -32,19 +42,38 @@ export function WorkerDashboard() {
   const toggleOnline = useMutation(api.users.toggleOnlineStatus);
   const updateLocation = useMutation(api.users.updateLocation);
   const [isOnline, setIsOnline] = useState(user?.isOnline ?? false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const trustUrl = typeof window !== "undefined" && user?._id
+    ? `${window.location.origin}/trust/${user._id}`
+    : "";
+  const copyTrustLink = async () => {
+    try {
+      hapticTap();
+      await shareContent({
+        title: "ملف الثقة الرقمي",
+        text: "ملف الثقة الرقمي الخاص بي على تطبيق صنعة",
+        url: trustUrl,
+      });
+      toast.success("تمت المشاركة");
+    } catch {
+      toast.error("تعذر المشاركة");
+    }
+  };
+  const shareTrustWhatsApp = () => {
+    const txt = encodeURIComponent(
+      `ملف الثقة الرقمي الخاص بي على تطبيق صنعة:\n${trustUrl}`
+    );
+    window.open(`https://wa.me/?text=${txt}`, "_blank");
+  };
   useEffect(() => {
     if (user?.isOnline !== undefined) setIsOnline(user.isOnline);
   }, [user?.isOnline]);
   useEffect(() => {
     if (!isOnline || user?.kycStatus !== "verified") return;
     const reportLocation = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateLocation({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
-        },
-        (err) => console.warn("Location update failed", err),
-        { enableHighAccuracy: true }
-      );
+      getCurrentPosition()
+        .then((coords) => updateLocation({ location: coords }))
+        .catch((err) => console.warn("Location update failed", err));
     };
     reportLocation();
     const interval = setInterval(reportLocation, 45000);
@@ -116,6 +145,22 @@ export function WorkerDashboard() {
                   <Star className="w-8 h-8 fill-current drop-shadow-sm" />
                   <span>{user?.trustScore?.toFixed(1) || "5.0"}</span>
                 </div>
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <Button
+                    onClick={() => setShareOpen(true)}
+                    disabled={user?.kycStatus !== "verified"}
+                    className="rounded-2xl h-12 gap-2 font-bold bg-primary hover:bg-primary/90 shadow-lg"
+                  >
+                    <Share2 className="w-5 h-5" /> شارك ملف ثقتي
+                  </Button>
+                  <Button
+                    onClick={() => navigate("/worker/profile-editor")}
+                    variant="outline"
+                    className="rounded-2xl h-12 gap-2 font-bold"
+                  >
+                    <UserCog className="w-5 h-5" /> تعديل الملف العام
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -186,6 +231,49 @@ export function WorkerDashboard() {
           </div>
         </div>
       </div>
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-md rounded-[2.5rem] p-8" dir="rtl">
+          <DialogHeader className="text-center space-y-3">
+            <DialogTitle className="text-2xl font-black">
+              ملف ثقتك الرقمي
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              شارك هذا الرابط أو الرمز مع الزبائن لعرض تقييماتك وأعمالك فوراً.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="p-5 bg-white rounded-3xl shadow-xl border">
+              <QRCodeSVG value={trustUrl} size={200} level="M" />
+            </div>
+            <div className="w-full bg-muted/50 rounded-xl p-3 font-mono text-xs text-center break-all">
+              {trustUrl}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 pt-2">
+            <Button
+              onClick={shareTrustWhatsApp}
+              className="rounded-xl h-12 bg-emerald-600 hover:bg-emerald-700 gap-1 font-bold"
+            >
+              <MessageCircle className="w-4 h-4" /> واتساب
+            </Button>
+            <Button
+              onClick={copyTrustLink}
+              variant="outline"
+              className="rounded-xl h-12 gap-1 font-bold"
+            >
+              <Copy className="w-4 h-4" /> نسخ
+            </Button>
+            <Button
+              onClick={() => window.open(trustUrl, "_blank")}
+              variant="outline"
+              className="rounded-xl h-12 gap-1 font-bold"
+            >
+              <ExternalLink className="w-4 h-4" /> معاينة
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
