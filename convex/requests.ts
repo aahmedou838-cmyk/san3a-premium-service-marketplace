@@ -2,10 +2,24 @@ import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
+// Service pricing table (MRU) — transparent price ranges per service type.
+const PRICE_RANGES: Record<string, { min: number; max: number }> = {
+  "سباكة": { min: 200, max: 600 },
+  "كهرباء": { min: 250, max: 700 },
+  "ميكانيكا": { min: 300, max: 1200 },
+  "تنظيف": { min: 150, max: 500 },
+  "نجارة": { min: 200, max: 800 },
+  "تكييف": { min: 400, max: 1500 },
+  "دهانات": { min: 250, max: 900 },
+  "أثاث": { min: 200, max: 700 },
+};
+const DEFAULT_RANGE = { min: 200, max: 700 };
+
 export const createRequest = mutation({
   args: {
     serviceType: v.string(),
     description: v.optional(v.string()),
+    voiceNoteFileId: v.optional(v.id("files")),
     address: v.optional(v.string()),
     location: v.optional(v.object({ lat: v.number(), lng: v.number() })),
   },
@@ -14,23 +28,31 @@ export const createRequest = mutation({
     if (!userId) throw new Error("Unauthorized");
     const user = await ctx.db.get(userId);
     if (user?.isFrozen) throw new Error("تم تجميد حسابك، يرجى التواصل مع الإدارة.");
+    const range = PRICE_RANGES[args.serviceType] || DEFAULT_RANGE;
     const requestId = await ctx.db.insert("service_requests", {
       clientId: userId,
       serviceType: args.serviceType,
       description: args.description,
+      voiceNoteFileId: args.voiceNoteFileId,
       address: args.address,
       location: args.location,
       status: "pending",
-      price: 250, 
+      price: Math.round((range.min + range.max) / 2),
+      priceRange: range,
     });
     await ctx.db.insert("audit_logs", {
       action: "REQUEST_CREATED",
       userId,
-      metadata: { requestId, serviceType: args.serviceType },
+      metadata: { requestId, serviceType: args.serviceType, range },
       timestamp: Date.now(),
     });
     return requestId;
   },
+});
+
+export const getServicePricing = query({
+  args: {},
+  handler: async () => PRICE_RANGES,
 });
 export const reportSOS = mutation({
   args: {
@@ -224,6 +246,7 @@ export const reportDispute = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
+    await ctx.db.patch(args.requestId, { hasDispute: true });
     await ctx.db.insert("audit_logs", {
       action: "DISPUTE_REPORTED",
       userId,

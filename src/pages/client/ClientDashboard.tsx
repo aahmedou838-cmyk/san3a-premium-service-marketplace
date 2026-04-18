@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { DigitalContract } from "@/components/contracts/DigitalContract";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ServiceRequestDialog } from "@/components/client/ServiceRequestDialog";
 const services = [
   { id: "plumbing", name: "سباكة", icon: Droplets, color: "text-blue-500", bg: "bg-blue-50" },
   { id: "electricity", name: "كهرباء", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-50" },
@@ -38,7 +39,7 @@ const workerIcon = new L.DivIcon({
 });
 export function ClientDashboard() {
   const navigate = useNavigate();
-  const createRequest = useMutation(api.requests.createRequest);
+  const pricing = useQuery(api.requests.getServicePricing) || {};
   const activeRequests = useQuery(api.requests.listActiveRequests) ?? [];
   const nearbyWorkers = useQuery(api.users.listNearbyWorkers) ?? [];
   const acceptContract = useMutation(api.requests.acceptContract);
@@ -46,16 +47,9 @@ export function ClientDashboard() {
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [isContractOpen, setIsContractOpen] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
-  const handleServiceClick = async (serviceName: string) => {
-    try {
-      await createRequest({
-        serviceType: serviceName,
-        address: "نواكشوط، تفرغ زينة",
-      });
-      toast.success("تم إرسال طلبك! جاري البحث عن فني...");
-    } catch (err: any) {
-      toast.error(err.message || "فشل في إنشاء الطلب");
-    }
+  const [requestDialogFor, setRequestDialogFor] = useState<string | null>(null);
+  const handleServiceClick = (serviceName: string) => {
+    setRequestDialogFor(serviceName);
   };
   const openWhatsApp = (phone: string, name: string) => {
     const msg = encodeURIComponent(`مرحباً ${name}، أرغب في الاستفسار عن خدمة عبر تطبيق صنعة.`);
@@ -69,18 +63,26 @@ export function ClientDashboard() {
           <p className="text-muted-foreground">أفضل الفنيين الموثقين في نواكشوط بانتظار خدمتك.</p>
         </section>
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {services.map((service) => (
-            <motion.button key={service.id} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleServiceClick(service.name)} className="group text-right">
-              <Card className="border-none shadow-soft hover:shadow-xl transition-all h-full bg-card rounded-3xl overflow-hidden">
-                <CardContent className="p-8 flex flex-col items-center gap-4">
-                  <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6", service.bg)}>
-                    <service.icon className={cn("w-10 h-10", service.color)} />
-                  </div>
-                  <span className="font-bold text-xl">{service.name}</span>
-                </CardContent>
-              </Card>
-            </motion.button>
-          ))}
+          {services.map((service) => {
+            const range = (pricing as any)[service.name];
+            return (
+              <motion.button key={service.id} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleServiceClick(service.name)} className="group text-right">
+                <Card className="border-none shadow-soft hover:shadow-xl transition-all h-full bg-card rounded-3xl overflow-hidden">
+                  <CardContent className="p-8 flex flex-col items-center gap-4">
+                    <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-6", service.bg)}>
+                      <service.icon className={cn("w-10 h-10", service.color)} />
+                    </div>
+                    <span className="font-bold text-xl">{service.name}</span>
+                    {range && (
+                      <span className="text-xs text-muted-foreground font-bold px-3 py-1 rounded-full bg-muted">
+                        {range.min}–{range.max} MRU
+                      </span>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.button>
+            );
+          })}
         </section>
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -104,7 +106,7 @@ export function ClientDashboard() {
                       </div>
                       <p className="text-xs text-muted-foreground m-0">متواجد الآن في نواكشوط</p>
                       <div className="flex gap-2 pt-2">
-                        <Button size="sm" className="flex-1 h-8 text-[10px]" onClick={() => handleServiceClick("خدمة فورية")}>طلب الآن</Button>
+                        <Button size="sm" className="flex-1 h-8 text-[10px]" onClick={() => navigate(`/trust/${worker._id}`)}>ملف الثقة</Button>
                         <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => openWhatsApp(worker.phone!, worker.name!)}>
                           <MessageCircle className="w-4 h-4 text-emerald-600" />
                         </Button>
@@ -151,6 +153,11 @@ export function ClientDashboard() {
           </section>
         )}
       </div>
+      <ServiceRequestDialog
+        serviceName={requestDialogFor}
+        open={requestDialogFor !== null}
+        onClose={() => setRequestDialogFor(null)}
+      />
       <Dialog open={isContractOpen} onOpenChange={setIsContractOpen}>
         <DialogContent className="max-w-2xl p-0 bg-transparent border-none">
           {selectedRequest && (

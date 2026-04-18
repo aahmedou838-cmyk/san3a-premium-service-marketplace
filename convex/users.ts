@@ -78,6 +78,9 @@ export const submitKYC = mutation({
     phone: v.string(),
     skills: v.array(v.string()),
     idFileId: v.optional(v.id("files")),
+    bio: v.optional(v.string()),
+    experienceYears: v.optional(v.number()),
+    city: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -87,11 +90,118 @@ export const submitKYC = mutation({
       phone: args.phone,
       kycStatus: "pending",
       idFileId: args.idFileId,
+      skills: args.skills,
+      bio: args.bio,
+      experienceYears: args.experienceYears,
+      city: args.city,
     });
     await ctx.db.insert("audit_logs", {
       action: "KYC_SUBMISSION",
       userId,
       metadata: { skills: args.skills, idFileId: args.idFileId },
+      timestamp: Date.now(),
+    });
+  },
+});
+
+export const updateWorkerProfile = mutation({
+  args: {
+    bio: v.optional(v.string()),
+    skills: v.optional(v.array(v.string())),
+    experienceYears: v.optional(v.number()),
+    city: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    const user = await ctx.db.get(userId);
+    if (user?.role !== "worker") throw new Error("Workers only");
+    const patch: any = {};
+    if (args.bio !== undefined) patch.bio = args.bio.slice(0, 400);
+    if (args.skills !== undefined) patch.skills = args.skills;
+    if (args.experienceYears !== undefined) patch.experienceYears = Math.max(0, args.experienceYears);
+    if (args.city !== undefined) patch.city = args.city;
+    await ctx.db.patch(userId, patch);
+    await ctx.db.insert("audit_logs", {
+      action: "WORKER_PROFILE_UPDATED",
+      userId,
+      metadata: patch,
+      timestamp: Date.now(),
+    });
+  },
+});
+
+export const addPortfolioFile = mutation({
+  args: { fileId: v.id("files") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    const user = await ctx.db.get(userId);
+    if (user?.role !== "worker") throw new Error("Workers only");
+    const current = user.portfolioFileIds || [];
+    if (current.length >= 12) throw new Error("الحد الأقصى 12 صورة");
+    await ctx.db.patch(userId, {
+      portfolioFileIds: [...current, args.fileId],
+    });
+  },
+});
+
+export const removePortfolioFile = mutation({
+  args: { fileId: v.id("files") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("Not found");
+    const next = (user.portfolioFileIds || []).filter((f) => f !== args.fileId);
+    await ctx.db.patch(userId, { portfolioFileIds: next });
+    const file = await ctx.db.get(args.fileId);
+    if (file && file.userId === userId) {
+      await ctx.storage.delete(file.storageId);
+      await ctx.db.delete(args.fileId);
+    }
+  },
+});
+
+export const getMyPortfolioUrls = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const user = await ctx.db.get(userId);
+    if (!user || !user.portfolioFileIds) return [];
+    const result = [] as Array<{ fileId: string; url: string }>;
+    for (const fid of user.portfolioFileIds) {
+      const f = await ctx.db.get(fid);
+      if (f) {
+        const url = await ctx.storage.getUrl(f.storageId);
+        if (url) result.push({ fileId: fid, url });
+      }
+    }
+    return result;
+  },
+});
+
+export const requestPayout = mutation({
+  args: {
+    amount: v.number(),
+    method: v.union(v.literal("Bankily"), v.literal("Masrivi"), v.literal("Bank")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
+    if (args.amount < 50) throw new Error("الحد الأدنى 50 MRU");
+    await ctx.db.insert("payouts", {
+      workerId: userId,
+      amount: args.amount,
+      method: args.method,
+      status: "pending",
+      timestamp: Date.now(),
+    });
+    await ctx.db.insert("audit_logs", {
+      action: "PAYOUT_REQUESTED",
+      userId,
+      metadata: { amount: args.amount, method: args.method },
       timestamp: Date.now(),
     });
   },
@@ -124,7 +234,8 @@ export const verifyWorker = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const adminId = await getAuthUserId(ctx);
-    const adminUser = adminId ? await ctx.db.get(adminId) : null;
+    if (!adminId) throw new Error("Unauthorized");
+    const adminUser = await ctx.db.get(adminId);
     if (adminUser?.role !== "admin") throw new Error("Forbidden");
     await ctx.db.patch(args.userId, { kycStatus: "verified" });
     await ctx.db.insert("notifications", {

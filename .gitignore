@@ -1,3 +1,8 @@
 
 # Bootstrap marker
 .bootstrap-complete
+
+# Dependencies & build artifacts
+node_modules/
+dist/
+.wrangler/

@@ -23,12 +23,19 @@ import { ActiveJob } from '@/pages/worker/ActiveJob'
 import { WalletPage } from '@/pages/worker/WalletPage'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { ProfilePage } from '@/pages/shared/ProfilePage'
+import { TrustProfile } from '@/pages/shared/TrustProfile'
+import { WorkerProfileEditor } from '@/pages/worker/WorkerProfileEditor'
 import { RtlLayout } from '@/components/layout/RtlLayout'
 const queryClient = new QueryClient();
 const router = createBrowserRouter([
   {
     path: "/",
     element: <HomePage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/trust/:workerId",
+    element: <TrustProfile />,
     errorElement: <RouteErrorBoundary />,
   },
   {
@@ -41,6 +48,7 @@ const router = createBrowserRouter([
       { path: "/worker", element: <WorkerDashboard /> },
       { path: "/worker/kyc", element: <WorkerKYC /> },
       { path: "/worker/job/:requestId", element: <ActiveJob /> },
+      { path: "/worker/profile-editor", element: <WorkerProfileEditor /> },
       { path: "/wallet", element: <WalletPage /> },
       { path: "/admin", element: <AdminDashboard /> },
       { path: "/profile", element: <ProfilePage /> },
