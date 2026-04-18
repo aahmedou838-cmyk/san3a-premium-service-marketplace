@@ -1,0 +1,42 @@
+{
+  "name": "San3a Marketplace",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true
+    },
+    "ghcr.io/shyim/devcontainers-features/bun:0": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  },
+  "forwardPorts": [3000, 4173],
+  "portsAttributes": {
+    "3000": {
+      "label": "San3a Web App",
+      "onAutoForward": "openBrowser"
+    },
+    "4173": {
+      "label": "Production Preview",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "bun install",
+  "postAttachCommand": {
+    "welcome": "echo '\\n\\n🎉 Welcome to San3a Marketplace!\\n\\n📖 Read QUICKSTART.md for full instructions\\n\\n🚀 Quick start:\\n   1. bunx convex dev      (in one terminal — creates Convex backend)\\n   2. bun run dev           (in another terminal — opens web app)\\n\\n'"
+  },
+  "remoteUser": "node"
+}
