@@ -32,6 +32,7 @@ import { Share2, Copy, ExternalLink, UserCog, MessageCircle } from "lucide-react
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { getCurrentPosition, shareContent, hapticTap } from "@/lib/native";
 export function WorkerDashboard() {
   const navigate = useNavigate();
   const user = useQuery(api.auth.loggedInUser);
@@ -47,10 +48,15 @@ export function WorkerDashboard() {
     : "";
   const copyTrustLink = async () => {
     try {
-      await navigator.clipboard.writeText(trustUrl);
-      toast.success("تم نسخ الرابط");
+      hapticTap();
+      await shareContent({
+        title: "ملف الثقة الرقمي",
+        text: "ملف الثقة الرقمي الخاص بي على تطبيق صنعة",
+        url: trustUrl,
+      });
+      toast.success("تمت المشاركة");
     } catch {
-      toast.error("تعذر النسخ");
+      toast.error("تعذر المشاركة");
     }
   };
   const shareTrustWhatsApp = () => {
@@ -65,13 +71,9 @@ export function WorkerDashboard() {
   useEffect(() => {
     if (!isOnline || user?.kycStatus !== "verified") return;
     const reportLocation = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          updateLocation({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
-        },
-        (err) => console.warn("Location update failed", err),
-        { enableHighAccuracy: true }
-      );
+      getCurrentPosition()
+        .then((coords) => updateLocation({ location: coords }))
+        .catch((err) => console.warn("Location update failed", err));
     };
     reportLocation();
     const interval = setInterval(reportLocation, 45000);

@@ -15,6 +15,7 @@ import { Mic, Square, Play, Trash2, MapPin, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Id } from "@convex/_generated/dataModel";
+import { getCurrentPosition, hapticTap } from "@/lib/native";
 
 interface Props {
   serviceName: string | null;
@@ -53,13 +54,9 @@ export function ServiceRequestDialog({
 
   useEffect(() => {
     if (!open) return;
-    if (!("geolocation" in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
-      { enableHighAccuracy: true, timeout: 4000 }
-    );
+    getCurrentPosition()
+      .then((coords) => setLocation(coords))
+      .catch(() => {});
   }, [open]);
 
   useEffect(() => {
@@ -105,6 +102,7 @@ export function ServiceRequestDialog({
 
   const handleSubmit = async () => {
     if (!serviceName) return;
+    hapticTap();
     setSubmitting(true);
     try {
       let voiceNoteFileId: Id<"files"> | undefined;
