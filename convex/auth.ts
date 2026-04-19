@@ -5,6 +5,7 @@ import { AndromoVerifyOTP, AndromoResetOTP } from "./email/AndromoOTP";
 import { query } from "./_generated/server";
 import { validatePasswordRequirements } from "../shared/auth";
 
+// @ts-ignore
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password({
